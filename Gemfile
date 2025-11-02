@@ -1,9 +1,11 @@
 source "https://rubygems.org"
+ruby '3.3.8'
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
 gem "rails", "~> 8.1.1"
+gem 'pg'
 # Use sqlite3 as the database for Active Record
-gem "sqlite3", ">= 2.1"
+# gem "sqlite3", ">= 2.1"
 # Use the Puma web server [https://github.com/puma/puma]
 gem "puma", ">= 5.0"
 # Build JSON APIs with ease [https://github.com/rails/jbuilder]
@@ -34,6 +36,10 @@ gem "image_processing", "~> 1.2"
 
 # Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
 # gem "rack-cors"
+gem "faraday", "~> 2.14"
+gem "faraday-retry", "~> 2.3"
+gem "oj", "~> 3.16"
+gem "dotenv-rails", "~> 3.1"
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
@@ -47,4 +53,12 @@ group :development, :test do
 
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
+  gem 'database_cleaner'
+  gem 'factory_bot_rails'
+  gem 'ffaker'
+  gem "rspec-rails", "~> 8.0"
+  gem 'pry-remote'
+  gem 'pry-rails'
+  gem "webmock", "~> 3.26"
 end
+
