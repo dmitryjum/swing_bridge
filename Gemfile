@@ -1,9 +1,9 @@
 source "https://rubygems.org"
-ruby '3.3.8'
+ruby "3.3.8"
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
 gem "rails", "~> 8.1.1"
-gem 'pg'
+gem "pg"
 # Use sqlite3 as the database for Active Record
 # gem "sqlite3", ">= 2.1"
 # Use the Puma web server [https://github.com/puma/puma]
@@ -53,12 +53,11 @@ group :development, :test do
 
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
-  gem 'database_cleaner'
-  gem 'factory_bot_rails'
-  gem 'ffaker'
+  gem "database_cleaner"
+  gem "factory_bot_rails"
+  gem "ffaker"
   gem "rspec-rails", "~> 8.0"
-  gem 'pry-remote'
-  gem 'pry-rails'
+  gem "pry-remote"
+  gem "pry-rails"
   gem "webmock", "~> 3.26"
 end
-

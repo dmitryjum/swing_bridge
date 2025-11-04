@@ -7,9 +7,9 @@ class HttpClient
         interval: 0.25,
         backoff_factor: 2.0,
         randomization_factor: 0.25,
-        retry_statuses: [429, 500, 502, 503, 504],
+        retry_statuses: [ 429, 500, 502, 503, 504 ],
         methods: %i[get head], # keep POST off unless the endpoint is idempotent
-        exceptions: [Faraday::TimeoutError, Faraday::ConnectionFailed]
+        exceptions: [ Faraday::TimeoutError, Faraday::ConnectionFailed ]
 
       f.response :json
       f.adapter Faraday.default_adapter
