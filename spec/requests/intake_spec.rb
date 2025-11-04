@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "API V1 Intakes", type: :request do
-  let(:base)  { "https://abcfinancial.3scale.net/" }
+  let(:base)  { "https://api.abcfinancial.com/rest/" }
   let(:club)  { "9003" } # sandbox club
   let(:email) { "mitch@example.com" }
 
@@ -75,7 +75,7 @@ RSpec.describe "API V1 Intakes", type: :request do
     #   )
 
     # post "/intake", params: { email: email, name: "Mitch Conner" }
-    post api_v1_intakes_path(credentials: { email: email, name: "Mitch Conner"})
+    post api_v1_intakes_path(credentials: {club: club, email: "holly.boyette@abcfinancial.com", name: "Mitch Conner"})
     expect(response).to have_http_status(:ok)
     # json = JSON.parse(response.body)
     # expect(json["status"]).to eq("found")

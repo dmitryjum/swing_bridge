@@ -4,7 +4,7 @@ class Api::V1::IntakesController < ApplicationController
   end
 
   def create
-    client = AbcClient.new
+    client = AbcClient.new(club: credential_params[:club])
     result = client.find_member_by_email(credential_params[:email])
 
     if result
@@ -17,6 +17,6 @@ class Api::V1::IntakesController < ApplicationController
   private
 
   def credential_params
-    params.require(:credentials).permit(:email, :name)
+    params.require(:credentials).permit(:club, :email, :name)
   end
 end
