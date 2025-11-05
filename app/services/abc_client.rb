@@ -31,8 +31,9 @@ class AbcClient
     members = data["members"] || []
     requested_member = {
       member_id: members.first["memberId"],
-      first_name: members.first["personal"]["first_name"]
-      last_name: members.first["personal"]["last_name"]
+      first_name: members.first["personal"]["first_name"],
+      last_name: members.first["personal"]["last_name"],
+      email: members.first["personal"]["email"]
     }
   end
 end

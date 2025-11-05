@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe "API V1 Intakes", type: :request do
   let(:base)  { "https://api.abcfinancial.com/rest/" }
-  let(:club)  { "9003" } # sandbox club
+  let(:sandbox)  { "9003" } # sandbox club
   let(:newburgh_club) { "1552" }
   let(:middletown_club) { "1597" }
   let(:email) { "mitch@example.com" }
@@ -12,7 +12,7 @@ RSpec.describe "API V1 Intakes", type: :request do
     allow(ENV).to receive(:[]).and_call_original
     allow(ENV).to receive(:fetch).and_call_original
     allow(ENV).to receive(:fetch).with("ABC_BASE", anything).and_return(base)
-    allow(ENV).to receive(:fetch).with("ABC_CLUB").and_return(club)
+    allow(ENV).to receive(:fetch).with("ABC_CLUB").and_return(sandbox)
     # allow(ENV).to receive(:fetch).with("ABC_APP_ID").and_return("app-id")
     # allow(ENV).to receive(:fetch).with("ABC_APP_KEY").and_return("app-key")
   end
@@ -24,7 +24,7 @@ RSpec.describe "API V1 Intakes", type: :request do
 
   xit "returns not_found when ABC has no match" do
     # Stub page 1 with some other members and nextPage = 0
-    stub_request(:get, "#{base}/#{club}/members/personals")
+    stub_request(:get, "#{base}/#{sandbox}/members/personals")
       .with { |req| req.uri.query_values["page"] == "1" }
       .to_return(
         status: 200,
@@ -78,8 +78,12 @@ RSpec.describe "API V1 Intakes", type: :request do
 
     # post "/intake", params: { email: email, name: "Mitch Conner" }
     # post api_v1_intakes_path(credentials: {club: club, email: "holly.boyette@abcfinancial.com", last_name: "Mitch Conner"})
-    post api_v1_intakes_path(credentials: {club: newburgh_club, email: "holly.boyette@abcfinancial.com", last_name: "Mitch Conner"})
+    post api_v1_intakes_path(credentials: {club: sandbox, email: "holly.boyette@abcfinancial.com", last_name: "Mitch Conner"})
     expect(response).to have_http_status(:ok)
+    json = JSON.parse(response.body)
+    expect(json["status"]).to eq("found")
+    expect(json.dig("member", "member_id")).to eq("000c002c06ca42af92bc9b365d04d095")
+    expect(json.dig("member", "email")).to eq("holly.boyette@abcfinancial.com")
     # "Last000085371" - no email - sandbox
     # "Last000085372" - no email - sandbox
     # VALENTIN mvalentin75@yahoo.com - newburgh
@@ -111,8 +115,5 @@ RSpec.describe "API V1 Intakes", type: :request do
  # "crvalentin1014@gmail.com",
  # "nickshump4@gmail.com",
  # "giggles316d@msn.com"]
-    # json = JSON.parse(response.body)
-    # expect(json["status"]).to eq("found")
-    # expect(json.dig("member", "memberId")).to eq("abc-123")
   end
 end
