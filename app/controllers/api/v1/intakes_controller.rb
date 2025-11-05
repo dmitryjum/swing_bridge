@@ -17,6 +17,6 @@ class Api::V1::IntakesController < ApplicationController
   private
 
   def credential_params
-    params.require(:credentials).permit(:club, :email, :name)
+    params.require(:credentials).permit(:club, :email)
   end
 end

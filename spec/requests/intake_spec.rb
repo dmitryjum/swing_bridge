@@ -3,6 +3,8 @@ require "rails_helper"
 RSpec.describe "API V1 Intakes", type: :request do
   let(:base)  { "https://api.abcfinancial.com/rest/" }
   let(:club)  { "9003" } # sandbox club
+  let(:newburgh_club) { "1552" }
+  let(:middletown_club) { "1597" }
   let(:email) { "mitch@example.com" }
 
   before do
@@ -75,8 +77,40 @@ RSpec.describe "API V1 Intakes", type: :request do
     #   )
 
     # post "/intake", params: { email: email, name: "Mitch Conner" }
-    post api_v1_intakes_path(credentials: {club: club, email: "holly.boyette@abcfinancial.com", name: "Mitch Conner"})
+    # post api_v1_intakes_path(credentials: {club: club, email: "holly.boyette@abcfinancial.com", last_name: "Mitch Conner"})
+    post api_v1_intakes_path(credentials: {club: newburgh_club, email: "holly.boyette@abcfinancial.com", last_name: "Mitch Conner"})
     expect(response).to have_http_status(:ok)
+    # "Last000085371" - no email - sandbox
+    # "Last000085372" - no email - sandbox
+    # VALENTIN mvalentin75@yahoo.com - newburgh
+    # FRYAR - no email - newburgh
+    # Cobi.fryar@yahoo.com and fryar last name - newburgh
+ #    ["sergio.valentin@ebof.org",
+ # "mvalentin75@yahoo.com",
+ # "sandracvalentin@hotmail.com",
+ # "carlosvalentin1489@gmail.com",
+ # "samvanessav@gmail.com",
+ # "mia.yudeiny@gmail.com",
+ # "sergio_ebof@yahoo.com",
+ # "justinv2002@gmail.com",
+ # "crvalentin1014@gmail.com",
+ # "gini2283@gmail.com",
+ # "amv19@sunyorange.edu",
+ # "kvalentinxo@gmail.com",
+ # "samvanessav@gmail.com",
+ # "different.adny@gmail.com",
+ # "cisco1228@gmail.com",
+ # "larosanichol@icloud.com",
+ # "sandracvalentin@hotmail.com",
+ # "amv19@sunyorange.edu",
+ # "tylervalentin22@gmail.com",
+ # "sandracvalentin@hotmail.com",
+ # "ranvalentin@gmail.com",
+ # "ranvalentin@gmail.com",
+ # "ffdsafety1a@gmail.com",
+ # "crvalentin1014@gmail.com",
+ # "nickshump4@gmail.com",
+ # "giggles316d@msn.com"]
     # json = JSON.parse(response.body)
     # expect(json["status"]).to eq("found")
     # expect(json.dig("member", "memberId")).to eq("abc-123")
