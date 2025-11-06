@@ -6,9 +6,11 @@ class Api::V1::IntakesController < ApplicationController
   def create
     client = AbcClient.new(club: credential_params[:club])
     result = client.find_member_by_email(credential_params[:email])
-
-    if result
-      render json: { status: "found", member: result }, status: :ok
+    member = client.get_member_agreement
+    ready_to_upgrade = client.upgradable?
+    binding.pry
+    if member
+      render json: { status: "found", member: member }, status: :ok
     else
       render json: { status: "not_found" }, status: :ok
     end

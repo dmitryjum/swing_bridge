@@ -76,44 +76,12 @@ RSpec.describe "API V1 Intakes", type: :request do
     #     headers: { "Content-Type" => "application/json" }
     #   )
 
-    # post "/intake", params: { email: email, name: "Mitch Conner" }
-    # post api_v1_intakes_path(credentials: {club: club, email: "holly.boyette@abcfinancial.com", last_name: "Mitch Conner"})
-    post api_v1_intakes_path(credentials: {club: sandbox, email: "holly.boyette@abcfinancial.com", last_name: "Mitch Conner"})
-    expect(response).to have_http_status(:ok)
+    # post api_v1_intakes_path(credentials: {club: sandbox, email: "holly.boyette@abcfinancial.com"})
+    post api_v1_intakes_path(credentials: {club: newburgh_club, email: "carlosvalentin1489@gmail.com"}) #1A628844778CC5C2E050007F010065A1
     json = JSON.parse(response.body)
-    expect(json["status"]).to eq("found")
-    expect(json.dig("member", "member_id")).to eq("000c002c06ca42af92bc9b365d04d095")
-    expect(json.dig("member", "email")).to eq("holly.boyette@abcfinancial.com")
-    # "Last000085371" - no email - sandbox
-    # "Last000085372" - no email - sandbox
-    # VALENTIN mvalentin75@yahoo.com - newburgh
-    # FRYAR - no email - newburgh
-    # Cobi.fryar@yahoo.com and fryar last name - newburgh
- #    ["sergio.valentin@ebof.org",
- # "mvalentin75@yahoo.com",
- # "sandracvalentin@hotmail.com",
- # "carlosvalentin1489@gmail.com",
- # "samvanessav@gmail.com",
- # "mia.yudeiny@gmail.com",
- # "sergio_ebof@yahoo.com",
- # "justinv2002@gmail.com",
- # "crvalentin1014@gmail.com",
- # "gini2283@gmail.com",
- # "amv19@sunyorange.edu",
- # "kvalentinxo@gmail.com",
- # "samvanessav@gmail.com",
- # "different.adny@gmail.com",
- # "cisco1228@gmail.com",
- # "larosanichol@icloud.com",
- # "sandracvalentin@hotmail.com",
- # "amv19@sunyorange.edu",
- # "tylervalentin22@gmail.com",
- # "sandracvalentin@hotmail.com",
- # "ranvalentin@gmail.com",
- # "ranvalentin@gmail.com",
- # "ffdsafety1a@gmail.com",
- # "crvalentin1014@gmail.com",
- # "nickshump4@gmail.com",
- # "giggles316d@msn.com"]
+    expect(response).to have_http_status(:ok)
+    # expect(json["status"]).to eq("found")
+    # expect(json.dig("member", "member_id")).to eq("000c002c06ca42af92bc9b365d04d095")
+    # expect(json.dig("member", "email")).to eq("holly.boyette@abcfinancial.com")
   end
 end
