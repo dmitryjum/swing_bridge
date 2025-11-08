@@ -16,4 +16,12 @@ class HttpClient
       req.headers.update(headers) if headers&.any?
     end
   end
+
+  def post(path, body: {}, params: {}, headers: {})
+    @conn.post(path) do |req|
+      req.params.update(params)   if params&.any?
+      req.headers.update(headers) if headers&.any?
+      req.body = body if body
+    end
+  end
 end
