@@ -10,7 +10,6 @@ RSpec.describe "Mindbody Clients", type: :request do
 
   before do
     WebMock.disable_net_connect!(allow_localhost: true)
-    WebMock.allow_net_connect!
 
     allow(ENV).to receive(:fetch).and_call_original
     allow(ENV).to receive(:fetch).with("MBO_BASE", anything).and_return(base_url)
@@ -27,9 +26,18 @@ RSpec.describe "Mindbody Clients", type: :request do
   end
 
   it "returns created with all required fields" do
-    Stub required_client_fields endpoint
+    # Stub required_client_fields endpoint
     stub_request(:get, "#{base_url}client/requiredclientfields")
-      .with(query: { "SiteId" => site_id })
+      .with(
+        headers: {
+          "Api-Key" => api_key,
+          "Siteid" => site_id,
+          "Authorization" => "Bearer #{token}",
+          "Content-Type" => "application/json",
+          "Accept" => "application/json",
+          "User-Agent" => "TestApp"
+        }
+      )
       .to_return(
         status: 200,
         headers: { "Content-Type" => "application/json" },
@@ -41,10 +49,17 @@ RSpec.describe "Mindbody Clients", type: :request do
         }.to_json
       )
 
-    Stub add_client endpoint
+    # Stub add_client endpoint
     stub_request(:post, "#{base_url}client/addclient")
       .with(
-        query: { "SiteId" => site_id },
+        headers: {
+          "Api-Key" => api_key,
+          "Siteid" => site_id,
+          "Authorization" => "Bearer #{token}",
+          "Content-Type" => "application/json",
+          "Accept" => "application/json",
+          "User-Agent" => "TestApp"
+        },
         body: hash_including(
           "FirstName" => "John",
           "LastName" => "Smith",
