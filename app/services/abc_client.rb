@@ -1,5 +1,6 @@
 class AbcClient
   class NotFound < StandardError; end
+  attr_reader :requested_member, :requested_personal, :member_agreement
 
   def initialize(
     club:,
@@ -18,42 +19,40 @@ class AbcClient
     )
   end
 
-  # 1) Search personals (server-side filter by email/lastName if supported)
-  # Returns parsed response hash.
-  def search_personals(email: nil, page: 1, size: 100)
-    params = { page:, size: }
-    params[:email]    = email    if email.present?
-
-    res = @client.get("#{@club}/members/personals", params: params)
+  def find_member_by_email(email)
+    res = @client.get("#{@club}/members/personals", params: { email: email })
     raise "ABC HTTP #{res.status}" unless res.success?
-    res.body || {}
+
+    data    = res.body || {}
+    members = data["members"] || []
+    member  = members.first or return nil
+
+    personal = member["personal"] || {}
+
+    @requested_member  = {
+      member_id:  member["memberId"],
+      first_name: personal["firstName"],
+      last_name:  personal["lastName"],
+      email:      personal["email"]
+    }
+
+    @requested_personal = personal
+
+    @requested_member
   end
 
-  # 2) Get a single member (details/agreements/etc.)
-  # Returns parsed response hash.
-  def member_details(member_id:)
-    res = @client.get("#{@club}/members/#{member_id}")
+  def get_member_agreement
+    res = @client.get("#{@club}/members/#{@requested_member[:member_id]}")
     raise "ABC HTTP #{res.status}" unless res.success?
-    res.body || {}
+
+    data    = res.body || {}
+    members = data["members"] || []
+    @member_agreement = members.first["agreement"]
   end
 
-  # Convenience extractors (pure funcs)
-  def first_member_from_personals(resp)
-    (resp["members"] || []).first
-  end
-
-  def agreement_from_member_details(resp)
-    members = resp["members"] || []
-    first   = members.first || {}
-    first["agreement"] || {}
-  end
-
-  # Your eligibility rule, isolated
-  def upgradable?(agreement)
-    freq  = agreement["paymentFrequency"].to_s
-    next_due = agreement["nextDueAmount"].to_f
-    (freq.downcase == "bi-weekly" && next_due > 24.99) ||
-      (freq.downcase == "monthly" && next_due > 49.0)
+  def upgradable?
+    @member_agreement["paymentFrequency"].downcase == "bi-weekly" && @member_agreement["nextDueAmount"].to_f > 24.99 ||
+    @member_agreement["paymentFrequency"].downcase == "monthly"   && @member_agreement["nextDueAmount"].to_f > 49.0
   end
 end
 

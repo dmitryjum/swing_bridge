@@ -70,6 +70,14 @@ class MindbodyClient
     res.body
   end
 
+  def ensure_required_client_fields!(attrs)
+    fields = required_client_fields["RequiredClientFields"] || []
+    missing = fields - attrs.keys
+    if missing.any?
+      raise ApiError, "Missing required fields: #{missing.join(', ')}"
+    end
+  end
+
   def find_clients(search_text:)
     res = @http.get("client/clients",
       params: { SearchText: search_text },
