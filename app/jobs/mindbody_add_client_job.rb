@@ -7,7 +7,7 @@ class MindbodyAddClientJob < ApplicationJob
     mb = MindbodyClient.new
 
     attrs = {
-      "FristName" => first_name,
+      "FirstName" => first_name,
       "LastName" => last_name,
       "Email" => email
     }.merge(extras.stringify_keys)
