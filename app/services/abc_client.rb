@@ -51,8 +51,13 @@ class AbcClient
   end
 
   def upgradable?
-    @member_agreement["paymentFrequency"].downcase == "bi-weekly" && @member_agreement["nextDueAmount"].to_f > 24.99 ||
-    @member_agreement["paymentFrequency"].downcase == "monthly"   && @member_agreement["nextDueAmount"].to_f > 49.0
+    return false unless @member_agreement
+
+    freq   = @member_agreement["paymentFrequency"].to_s.downcase
+    amount = @member_agreement["nextDueAmount"].to_f
+
+    (freq == "bi-weekly" && amount > 24.99) ||
+      (freq == "monthly" && amount > 49.0)
   end
 end
 
