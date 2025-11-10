@@ -27,13 +27,8 @@ class Api::V1::MindbodyClientsController < ApplicationController
       "Email" => email
     }.merge(extras.transform_keys(&:to_s))
     
-    missing_fields = required_fields - provided_fields.keys
-    if missing_fields.any?
-      return render json: {
-        status: "bad_request",
-        error: "Missing required fields: #{missing_fields.join(', ')}"
-      }, status: :bad_request
-    end
+    # This will raise MindbodyClient::ApiError if any required fields are missing
+    mb.ensure_required_client_fields!(provided_fields)
 
     result = mb.add_client(first_name: first, last_name: last, email: email, extras: extras)
 
