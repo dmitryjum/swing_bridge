@@ -7,16 +7,13 @@ class Api::V1::IntakesController < ApplicationController
     client   = AbcClient.new(club: credential_params[:club])
     member_summary = client.find_member_by_email(credential_params[:email])
     return render json: { status: "not_found" }, status: :ok unless member_summary
-
     agreement = client.get_member_agreement || {}
     member_payload = member_summary.merge(
       payment_freq:    agreement["paymentFrequency"],
       next_due_amount: agreement["nextDueAmount"]
     )
-
     if client.upgradable?
       extras = build_mindbody_extras(client.requested_personal)
-
       MindbodyAddClientJob.perform_later(
         first_name: member_summary[:first_name],
         last_name:  member_summary[:last_name],

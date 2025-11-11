@@ -29,7 +29,6 @@ class MindbodyClient
     end
 
     raise AuthError, "MBO_USERNAME / MBO_PASSWORD not set" if @username.to_s.empty? || @password.to_s.empty?
-
     res = @http.post("usertoken/issue",
       body: {
         Username: @username,

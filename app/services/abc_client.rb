@@ -1,6 +1,6 @@
 class AbcClient
   class NotFound < StandardError; end
-  attr_reader :requested_member, :requested_personal, :member_agreement
+  attr_reader :requested_member, :requested_personal, :member_agreement, :client
 
   def initialize(
     club:,
