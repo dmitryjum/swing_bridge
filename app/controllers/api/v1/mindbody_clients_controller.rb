@@ -17,16 +17,12 @@ class Api::V1::MindbodyClientsController < ApplicationController
     extras[:AddressLine2] = params[:address_line2] if params[:address_line2].present?
 
     mb = MindbodyClient.new
-    required_fields_response = mb.required_client_fields
-    required_fields = required_fields_response["RequiredClientFields"] || []
-    
     # Validate that all required fields are present
     provided_fields = {
       "FirstName" => first,
       "LastName" => last,
       "Email" => email
     }.merge(extras.transform_keys(&:to_s))
-    
     # This will raise MindbodyClient::ApiError if any required fields are missing
     mb.ensure_required_client_fields!(provided_fields)
 
