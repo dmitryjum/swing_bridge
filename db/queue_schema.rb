@@ -10,12 +10,12 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_11_12_001826) do
+ActiveRecord::Schema[8.1].define(version: 2025_11_12_201909) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
   create_table "intake_attempts", force: :cascade do |t|
-    t.integer "attempts_count", default: 0, null: false
+    t.integer "attempts_count", default: 1, null: false
     t.string "club", null: false
     t.datetime "created_at", null: false
     t.string "email", null: false
@@ -24,6 +24,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_12_001826) do
     t.jsonb "response_payload", default: {}
     t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
+    t.index ["club", "email"], name: "index_intake_attempts_on_club_and_email", unique: true
     t.index ["email"], name: "index_intake_attempts_on_email"
     t.index ["status"], name: "index_intake_attempts_on_status"
   end

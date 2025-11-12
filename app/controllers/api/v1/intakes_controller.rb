@@ -4,13 +4,20 @@ class Api::V1::IntakesController < ApplicationController
   end
 
   def create
-    attempt = IntakeAttempt.create!(
-      club: credential_params[:club],
-      email: credential_params[:email],
-      request_payload: credential_params.to_h,
-      status: :pending
-    )
+    email = credential_params[:email]
+    club = credential_params[:club]
+
+    attempt = IntakeAttempt.find_or_initialize_by(email: email, club: club)
     client = AbcClient.new(club: credential_params[:club])
+    if attempt.new_record?
+      attempt.status = :pending
+    else
+      attempt.attempts_count += 1
+      attempt.status = :pending
+    end
+    attempt.request_payload = credential_params.to_h
+    attempt.save!
+
     member_summary = client.find_member_by_email(credential_params[:email])
     return update_and_render_not_found(attempt) unless member_summary
 
