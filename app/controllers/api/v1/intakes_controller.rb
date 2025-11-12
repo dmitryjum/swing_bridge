@@ -24,6 +24,7 @@ class Api::V1::IntakesController < ApplicationController
       extras = build_mindbody_extras(client.requested_personal)
       attempt.update!(status: :eligible, response_payload: member_payload)
       MindbodyAddClientJob.perform_later(
+        intake_attempt_id: attempt.id,
         first_name: member_summary[:first_name],
         last_name:  member_summary[:last_name],
         email:      member_summary[:email],
