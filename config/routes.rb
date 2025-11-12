@@ -8,9 +8,7 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       resources :intakes, only: :create
+      resources :mindbody_clients, only: :create # POST /api/v1/mindbody_clients
     end
   end
-
-  # Defines the root path route ("/")
-  # root "posts#index"
 end

@@ -2,18 +2,25 @@ require "rails_helper"
 require "webmock/rspec"
 
 RSpec.describe "API V1 Intakes", type: :request do
+  include ActiveJob::TestHelper
+
   let(:base)  { "https://api.abcfinancial.com/rest/" }
   let(:club)  { "1552" }
   let(:email) { "mitch@example.com" }
   let(:name)  { "Mitch Conner" }
 
   before do
+    clear_enqueued_jobs
     WebMock.disable_net_connect!(allow_localhost: true)
 
     allow(ENV).to receive(:fetch).and_call_original
     allow(ENV).to receive(:fetch).with("ABC_BASE", anything).and_return(base)
     allow(ENV).to receive(:fetch).with("ABC_APP_ID").and_return("app-id")
     allow(ENV).to receive(:fetch).with("ABC_APP_KEY").and_return("app-key")
+  end
+
+  after do
+    clear_enqueued_jobs
   end
 
   def personals_url
@@ -27,7 +34,7 @@ RSpec.describe "API V1 Intakes", type: :request do
   it "returns eligible when agreement meets threshold" do
     # 1) personals search returns one member
     stub_request(:get, personals_url)
-      .with(query: hash_including({ "email" => email, "page" => "1" }))
+      .with(query: hash_including({ "email" => email }))
       .to_return(
         status: 200,
         headers: { "Content-Type" => "application/json" },
@@ -64,17 +71,25 @@ RSpec.describe "API V1 Intakes", type: :request do
         }.to_json
       )
 
-    post "/api/v1/intakes", params: { credentials: { club:, email: }, name: }
+    expect do
+      post "/api/v1/intakes", params: { credentials: { club:, email: }, name: }
+    end.to have_enqueued_job(MindbodyAddClientJob).with(
+      first_name: "Mitch",
+      last_name:  "Conner",
+      email:      email,
+      extras:     {}
+    )
+
     expect(response).to have_http_status(:ok)
     json = JSON.parse(response.body)
     expect(json["status"]).to eq("eligible")
-    expect(json.dig("member","member_id")).to eq("abc-123")
-    expect(json.dig("member","payment_freq")).to eq("Monthly")
+    expect(json.dig("member", "member_id")).to eq("abc-123")
+    expect(json.dig("member", "payment_freq")).to eq("Monthly")
   end
 
   it "returns ineligible when agreement is below threshold" do
     stub_request(:get, personals_url)
-      .with(query: hash_including({ "email" => email, "page" => "1" }))
+      .with(query: hash_including({ "email" => email }))
       .to_return(
         status: 200,
         headers: { "Content-Type" => "application/json" },
@@ -117,7 +132,7 @@ RSpec.describe "API V1 Intakes", type: :request do
 
   it "returns not_found when personals empty" do
     stub_request(:get, personals_url)
-      .with(query: hash_including({ "email" => email, "page" => "1" }))
+      .with(query: hash_including({ "email" => email }))
       .to_return(
         status: 200,
         headers: { "Content-Type" => "application/json" },
@@ -131,7 +146,7 @@ RSpec.describe "API V1 Intakes", type: :request do
 
   it "returns upstream_error on timeout" do
     stub_request(:get, personals_url)
-      .with(query: hash_including({ "email" => email, "page" => "1" }))
+      .with(query: hash_including({ "email" => email }))
       .to_timeout
 
     post "/api/v1/intakes", params: { credentials: { club:, email: }, name: }
