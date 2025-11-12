@@ -71,7 +71,7 @@ RSpec.describe "API V1 Intakes", type: :request do
         }.to_json
       )
 
-    post "/api/v1/intakes", params: { credentials: { club:, email: }, name: }
+    post "/api/v1/intakes", params: { credentials: { club:, email: } }
 
     expect(response).to have_http_status(:ok)
     json = JSON.parse(response.body)
@@ -131,7 +131,7 @@ RSpec.describe "API V1 Intakes", type: :request do
         }.to_json
       )
 
-    post "/api/v1/intakes", params: { credentials: { club:, email: }, name: }
+    post "/api/v1/intakes", params: { credentials: { club:, email: } }
     json = JSON.parse(response.body)
     expect(json["status"]).to eq("ineligible")
 
@@ -148,7 +148,7 @@ RSpec.describe "API V1 Intakes", type: :request do
         body: { status: { nextPage: 0 }, members: [] }.to_json
       )
 
-    post "/api/v1/intakes", params: { credentials: { club:, email: }, name: }
+    post "/api/v1/intakes", params: { credentials: { club:, email: } }
     json = JSON.parse(response.body)
     expect(json["status"]).to eq("not_found")
 
@@ -161,12 +161,37 @@ RSpec.describe "API V1 Intakes", type: :request do
       .with(query: hash_including({ "email" => email }))
       .to_timeout
 
-    post "/api/v1/intakes", params: { credentials: { club:, email: }, name: }
+    post "/api/v1/intakes", params: { credentials: { club:, email: } }
     expect(response).to have_http_status(:bad_gateway)
     json = JSON.parse(response.body)
     expect(json["status"]).to eq("upstream_error")
 
     attempt = IntakeAttempt.find_by(email: email, club: club)
     expect(attempt.status).to eq("upstream_error")
+  end
+
+  context "when retrying the same request" do
+    it "increments attempts_count and updates status on retry" do
+      stub_request(:get, personals_url)
+        .with(query: hash_including({ "email" => email }))
+        .to_return(
+          status: 200,
+          headers: { "Content-Type" => "application/json" },
+          body: { status: { nextPage: 0 }, members: [] }.to_json
+        )
+
+      # First attempt
+      post "/api/v1/intakes", params: { credentials: { club:, email: } }
+      attempt = IntakeAttempt.find_by(email: email, club: club)
+      expect(attempt.status).to eq("member_missing")
+      expect(attempt.attempts_count).to eq(1)
+
+      # Second attempt (retry) with same email and club
+      post "/api/v1/intakes", params: { credentials: { club:, email: } }
+      attempt.reload
+      expect(attempt.status).to eq("member_missing")
+      expect(attempt.attempts_count).to eq(2)  # Incremented on retry
+      expect(IntakeAttempt.where(email: email, club: club).count).to eq(1)  # Only one record  # Still only one record
+    end
   end
 end
