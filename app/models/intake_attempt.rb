@@ -1,0 +1,16 @@
+class IntakeAttempt < ApplicationRecord
+  enum status: {
+    pending:      "pending",
+    found:        "found",
+    eligible:     "eligible",
+    ineligible:   "ineligible",
+    enqueued:     "enqueued",
+    mb_success:   "mb_success",
+    mb_failed:    "mb_failed",
+    not_found:    "not_found",
+    upstream_error: "upstream_error",
+    failed:       "failed"
+  }
+
+  validates :email, :club, presence: true
+end

@@ -3,7 +3,8 @@ class MindbodyAddClientJob < ApplicationJob
   queue_as :default
 
   # All args must be simple JSON-serializable types
-  def perform(first_name:, last_name:, email:, extras: {})
+  def perform(intake_attempt_id: nil, first_name:, last_name:, email:, extras: {})
+    attempt = IntakeAttempt.find_by(id: intake_attempt_id) if intake_attempt_id
     mb = MindbodyClient.new
 
     attrs = {
@@ -26,12 +27,15 @@ class MindbodyAddClientJob < ApplicationJob
       "[MindbodyAddClientJob] Created client #{email} " \
       "-> #{result.dig("Client", "Id") || result.inspect}"
     )
+    attempt&.update!(status: :mb_success, response_payload: result)
   rescue MindbodyClient::AuthError, MindbodyClient::ApiError => e
     Rails.logger.error("[MindbodyAddClientJob] #{e.class}: #{e.message}")
+    attempt&.update!(status: :mb_failed, error_message: e.message)
     # Re-raise so Solid Queue’s retry/backoff can do its thing if you configure it
     raise
   rescue => e
     Rails.logger.error("[MindbodyAddClientJob] Unexpected error: #{e.class}: #{e.message}")
+    attempt&.update!(status: :failed, error_message: e.message)
     raise
   end
 end
