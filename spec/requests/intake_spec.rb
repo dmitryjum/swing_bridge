@@ -71,20 +71,26 @@ RSpec.describe "API V1 Intakes", type: :request do
         }.to_json
       )
 
-    expect do
-      post "/api/v1/intakes", params: { credentials: { club:, email: }, name: }
-    end.to have_enqueued_job(MindbodyAddClientJob).with(
-      first_name: "Mitch",
-      last_name:  "Conner",
-      email:      email,
-      extras:     {}
-    )
+    post "/api/v1/intakes", params: { credentials: { club:, email: }, name: }
 
     expect(response).to have_http_status(:ok)
     json = JSON.parse(response.body)
     expect(json["status"]).to eq("eligible")
     expect(json.dig("member", "member_id")).to eq("abc-123")
     expect(json.dig("member", "payment_freq")).to eq("Monthly")
+
+    # IntakeAttempt tracking assertions
+    attempt = IntakeAttempt.find_by(email: email, club: club)
+    expect(attempt.status).to eq("enqueued")
+    expect(MindbodyAddClientJob).to have_been_enqueued.with(
+      hash_including(
+        intake_attempt_id: attempt.id,
+        first_name: "Mitch",
+        last_name:  "Conner",
+        email:      email,
+        extras:     {}
+      )
+    )
   end
 
   it "returns ineligible when agreement is below threshold" do
@@ -128,6 +134,9 @@ RSpec.describe "API V1 Intakes", type: :request do
     post "/api/v1/intakes", params: { credentials: { club:, email: }, name: }
     json = JSON.parse(response.body)
     expect(json["status"]).to eq("ineligible")
+
+    attempt = IntakeAttempt.find_by(email: email, club: club)
+    expect(attempt.status).to eq("ineligible")
   end
 
   it "returns not_found when personals empty" do
@@ -142,6 +151,9 @@ RSpec.describe "API V1 Intakes", type: :request do
     post "/api/v1/intakes", params: { credentials: { club:, email: }, name: }
     json = JSON.parse(response.body)
     expect(json["status"]).to eq("not_found")
+
+    attempt = IntakeAttempt.find_by(email: email, club: club)
+    expect(attempt.status).to eq("member_missing")
   end
 
   it "returns upstream_error on timeout" do
@@ -153,5 +165,8 @@ RSpec.describe "API V1 Intakes", type: :request do
     expect(response).to have_http_status(:bad_gateway)
     json = JSON.parse(response.body)
     expect(json["status"]).to eq("upstream_error")
+
+    attempt = IntakeAttempt.find_by(email: email, club: club)
+    expect(attempt.status).to eq("upstream_error")
   end
 end
