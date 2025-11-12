@@ -49,7 +49,7 @@ class Api::V1::IntakesController < ApplicationController
   private
 
   def update_and_render_not_found(attempt)
-    attempt.update!(status: :not_found) if attempt
+    attempt.update!(status: :member_missing) if attempt
     render json: { status: "not_found" }, status: :ok
   end
 
