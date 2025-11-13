@@ -1,2 +1,8 @@
 #!/usr/bin/env ruby
-exec "./bin/rails", "server", *ARGV
+# Only apply Apple fork-safety bypass on macOS
+if RUBY_PLATFORM =~ /darwin/
+  ENV["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] ||= "YES"
+end
+
+# Local dev should always delegate to foreman (Procfile)
+exec "foreman", "start", *ARGV

@@ -1,1 +1,2 @@
-web: OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES SOLID_QUEUE_IN_PUMA=1 bin/rails server
+web: bin/rails server
+worker: bundle exec rails solid_queue:start
