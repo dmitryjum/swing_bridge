@@ -40,6 +40,7 @@ gem "faraday", "~> 2.14"
 gem "faraday-retry", "~> 2.3"
 gem "oj", "~> 3.16"
 gem "dotenv-rails", "~> 3.1"
+gem "mission_control-jobs"
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
@@ -61,3 +62,5 @@ group :development, :test do
   gem "pry-rails"
   gem "webmock", "~> 3.26"
 end
+
+gem "propshaft", "~> 1.3"
