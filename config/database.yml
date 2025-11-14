@@ -31,6 +31,16 @@ test:
     database: swing_bridge_test
     migrations_paths: db/queue_migrate
 
+production:
+  primary:
+    <<: *default
+    url: <%= ENV["DATABASE_URL"] %>
+  queue:
+    <<: *default
+    # Use SAME Postgres instance, but Solid Queue uses its own schema
+    url: <%= ENV["DATABASE_URL"] %>
+    migrations_paths: db/queue_migrate
+
 
 # Store production database in the storage/ directory, which by default
 # is mounted as a persistent Docker volume in config/deploy.yml.
