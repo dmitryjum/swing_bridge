@@ -227,6 +227,13 @@ RSpec.describe "API V1 Intakes", type: :request do
       .with(query: hash_including({ "email" => email }))
       .to_timeout
 
+    mailer_double = instance_double(ActionMailer::MessageDelivery, deliver_later: true)
+    expect(AdminMailer).to receive(:intake_failure) do |attempt, err|
+      expect(attempt).to be_a(IntakeAttempt)
+      expect(err).to be_a(Faraday::ConnectionFailed)
+      mailer_double
+    end
+
     post "/api/v1/intakes", params: { credentials: { club:, email: } }
     expect(response).to have_http_status(:bad_gateway)
     json = JSON.parse(response.body)
@@ -234,6 +241,26 @@ RSpec.describe "API V1 Intakes", type: :request do
 
     attempt = IntakeAttempt.find_by(email: email, club: club)
     expect(attempt.status).to eq("upstream_error")
+  end
+
+  it "notifies admins on unexpected errors" do
+    abc_client = instance_double(AbcClient)
+    allow(AbcClient).to receive(:new).and_return(abc_client)
+    allow(abc_client).to receive(:find_member_by_email).and_raise(StandardError.new("boom"))
+
+    mailer_double = instance_double(ActionMailer::MessageDelivery, deliver_later: true)
+    expect(AdminMailer).to receive(:intake_failure) do |attempt, err|
+      expect(attempt).to be_a(IntakeAttempt)
+      expect(err).to be_a(StandardError)
+      mailer_double
+    end
+
+    post "/api/v1/intakes", params: { credentials: { club:, email: } }
+    expect(response).to have_http_status(:internal_server_error)
+
+    attempt = IntakeAttempt.find_by(email: email, club: club)
+    expect(attempt.status).to eq("failed")
+    expect(attempt.error_message).to eq("boom")
   end
 
   context "when retrying the same request" do
