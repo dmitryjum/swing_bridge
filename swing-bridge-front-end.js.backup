@@ -173,10 +173,10 @@
 
         if (apiStatus === 'eligible') {
           setStatus(statusBox, 'success', 'Great news! You are eligible. Redirecting…');
-          window.location.href = ELIGIBLE_REDIRECT_URL;
+          // window.location.href = ELIGIBLE_REDIRECT_URL;
         } else if (apiStatus === 'ineligible' || apiStatus === 'not_found') {
           setStatus(statusBox, 'info', 'Thanks! Based on our records, you are not eligible for this upgrade.');
-          window.location.href = INELIGIBLE_REDIRECT_URL;
+          // window.location.href = INELIGIBLE_REDIRECT_URL;
         } else if (apiStatus === 'upstream_error') {
           setStatus(statusBox, 'error', 'Our membership system is temporarily unavailable. Please try again later.');
         } else {
