@@ -7,10 +7,10 @@
 
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
-    origins "https://swingmiddletown.com", "https://www.swingmiddletown.com"
-
+    origins "https://swingmiddletown.com",
+            "https://www.swingmiddletown.com"
     resource "/api/v1/intakes",
-      headers: :any,
-      methods: [ :post, :options ]
+             headers: :any,
+             methods: [ :post, :options ]
   end
 end
