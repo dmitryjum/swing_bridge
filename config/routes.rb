@@ -8,7 +8,6 @@ Rails.application.routes.draw do
     namespace :v1 do
       mount MissionControl::Jobs::Engine, at: "/jobs"
       resources :intakes, only: :create
-      resources :mindbody_clients, only: :create # POST /api/v1/mindbody_clients
     end
   end
 end
