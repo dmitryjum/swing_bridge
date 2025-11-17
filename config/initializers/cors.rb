@@ -8,27 +8,27 @@
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
     origins "https://swingmiddletown.com",
-            "https://www.swingmiddletown.com",
-            /\Ahttps?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\z/
+            "https://www.swingmiddletown.com"
+    #         /\Ahttps?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\z/
 
-    resource "/",
-             headers: :any,
-             methods: %i[get options]
+    # resource "/",
+    #          headers: :any,
+    #          methods: %i[get options]
 
-    resource "/up",
-             headers: :any,
-             methods: %i[get options]
+    # resource "/up",
+    #          headers: :any,
+    #          methods: %i[get options]
 
-    resource "/api/v1/jobs",
-             headers: :any,
-             methods: %i[get options]
+    # resource "/api/v1/jobs",
+    #          headers: :any,
+    #          methods: %i[get options]
 
-    resource "/api/v1/jobs/*",
-             headers: :any,
-             methods: %i[get post patch put delete options]
+    # resource "/api/v1/jobs/*",
+    #          headers: :any,
+    #          methods: %i[get post patch put delete options]
 
     resource "/api/v1/intakes",
              headers: :any,
-             methods: %i[post options]
+             methods: [ :post, :options ]
   end
 end
