@@ -2,11 +2,11 @@
   /*************** CONFIG ****************/
 
   // Toggle this to switch between fake API and real Rails call
-  const USE_MOCK = false;
+  // const USE_MOCK = false;
 
   // Your Rails dev endpoint
   // NOTE: if your route is actually /api/v1/intakes (plural), change it here.
-  const INTAKES_API_URL = 'http://localhost:5000/api/v1/intakes';
+  const INTAKES_API_URL = 'https://swing-bridge-api.onrender.com/api/v1/intakes';
 
   // Where to send users after eligibility check
   // For now just use test URLs or even '#'; you can swap later.
@@ -109,28 +109,28 @@
       return;
     }
 
-    if (USE_MOCK) {
-      /************* MOCKED API *************/
-      setTimeout(function () {
-        // flip this as needed or randomize
-        // const fakeStatus = 'eligible';
-        // const fakeStatus = 'ineligible';
-        const fakeStatus = Math.random() < 0.5 ? 'eligible' : 'ineligible';
+    // if (USE_MOCK) {
+    //   /************* MOCKED API *************/
+    //   setTimeout(function () {
+    //     // flip this as needed or randomize
+    //     // const fakeStatus = 'eligible';
+    //     // const fakeStatus = 'ineligible';
+    //     const fakeStatus = Math.random() < 0.5 ? 'eligible' : 'ineligible';
 
-        if (fakeStatus === 'eligible') {
-          setStatus(statusBox, 'success', 'Great news! You are eligible. Redirecting…');
-          console.log('[GG Intakes] (mock) would redirect to:', ELIGIBLE_REDIRECT_URL);
-          // Uncomment to actually redirect while testing
-          // window.location.href = ELIGIBLE_REDIRECT_URL;
-        } else {
-          setStatus(statusBox, 'info', 'Thanks! Based on our records, you are not eligible for this upgrade.');
-          console.log('[GG Intakes] (mock) would redirect to:', INELIGIBLE_REDIRECT_URL);
-          // window.location.href = INELIGIBLE_REDIRECT_URL;
-        }
-      }, 1500);
+    //     if (fakeStatus === 'eligible') {
+    //       setStatus(statusBox, 'success', 'Great news! You are eligible. Redirecting…');
+    //       console.log('[GG Intakes] (mock) would redirect to:', ELIGIBLE_REDIRECT_URL);
+    //       // Uncomment to actually redirect while testing
+    //       // window.location.href = ELIGIBLE_REDIRECT_URL;
+    //     } else {
+    //       setStatus(statusBox, 'info', 'Thanks! Based on our records, you are not eligible for this upgrade.');
+    //       console.log('[GG Intakes] (mock) would redirect to:', INELIGIBLE_REDIRECT_URL);
+    //       // window.location.href = INELIGIBLE_REDIRECT_URL;
+    //     }
+    //   }, 1500);
 
-      return; // don’t hit real API when mocking
-    }
+    //   return; // don’t hit real API when mocking
+    // }
 
     /************* REAL RAILS CALL *************/
 
@@ -188,10 +188,10 @@
         setStatus(statusBox, 'error', 'We could not reach our verification server. Please check your connection and try again.');
       });
   });
+  document.addEventListener('wpcf7mailfailed', function (event) {
+    const form = event.target;
+    const statusBox = ensureStatusBox(form);
+    setStatus(statusBox, 'error', 'We could not submit your request. Please review the form and try again.');
+  });
 })();
 
- // document.addEventListener('wpcf7mailfailed', function (event) {
- //    const form = event.target;
- //    const statusBox = ensureStatusBox(form);
- //    setStatus(statusBox, 'error', 'We could not submit your request. Please review the form and try again.');
- //  });

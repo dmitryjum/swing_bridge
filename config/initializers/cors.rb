@@ -11,6 +11,6 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
 
     resource "/api/v1/intakes",
       headers: :any,
-      methods: [:post, :options]
+      methods: [ :post, :options ]
   end
 end
