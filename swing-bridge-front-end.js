@@ -1,0 +1,197 @@
+(function () {
+  /*************** CONFIG ****************/
+
+  // Toggle this to switch between fake API and real Rails call
+  const USE_MOCK = false;
+
+  // Your Rails dev endpoint
+  // NOTE: if your route is actually /api/v1/intakes (plural), change it here.
+  const INTAKES_API_URL = 'http://localhost:5000/api/v1/intakes';
+
+  // Where to send users after eligibility check
+  // For now just use test URLs or even '#'; you can swap later.
+  const ELIGIBLE_REDIRECT_URL   = 'https://www.yahoo.com';
+  const INELIGIBLE_REDIRECT_URL = 'https://www.google.com';
+
+  // CF7 field names from your screenshot
+  const EMAIL_FIELD_NAME = 'your-email';
+  const CLUB_FIELD_NAME  = 'select-gym';
+
+  function normalizeClub(club) {
+    return {
+      "Gold's Gym Middletown": "1597",
+      "Gold's Gym Newburgh": "1552",
+    }[club] || club;
+  }
+
+  /************* UI HELPERS **************/
+
+  function ensureStatusBox(form) {
+    let box = form.querySelector('.gg-verification-status');
+    if (!box) {
+      box = document.createElement('div');
+      box.className = 'gg-verification-status';
+      const submit = form.querySelector('button, input[type="submit"]');
+      if (submit && submit.parentNode) {
+        submit.parentNode.insertBefore(box, submit.nextSibling);
+      } else {
+        form.appendChild(box);
+      }
+    }
+    return box;
+  }
+
+  function setStatus(box, type, message) {
+    box.className = 'gg-verification-status ' + (type ? 'gg-status-' + type : '');
+    box.textContent = message;
+  }
+
+  // Inject simple styles so it looks decent
+  (function injectStyles () {
+    if (document.getElementById('gg-verification-style')) return;
+    const style = document.createElement('style');
+    style.id = 'gg-verification-style';
+    style.textContent = `
+      .gg-verification-status {
+        margin-top: 0.75rem;
+        padding: 0.75rem 1rem;
+        border-radius: 4px;
+        font-size: 0.95rem;
+        line-height: 1.4;
+        background: #f5f5f5;
+        color: #222;
+      }
+      .gg-verification-status.gg-status-loading {
+        background: #fffbe6;
+        border-left: 4px solid #f0ad4e;
+      }
+      .gg-verification-status.gg-status-success {
+        background: #e6ffed;
+        border-left: 4px solid #28a745;
+      }
+      .gg-verification-status.gg-status-info {
+        background: #e6f3ff;
+        border-left: 4px solid #007bff;
+      }
+      .gg-verification-status.gg-status-error {
+        background: #ffe6e6;
+        border-left: 4px solid #dc3545;
+      }
+    `;
+    document.head.appendChild(style);
+  })();
+
+  /************* CF7 HOOKS ***************/
+
+  document.addEventListener('wpcf7mailsent', function (event) {
+    // If you later have multiple forms on the page, you can inspect event.detail.contactFormId here.
+    console.log('[GG Intakes] wpcf7mailsent:', event);
+
+    const form = event.target;
+    const statusBox = ensureStatusBox(form);
+    setStatus(statusBox, 'loading', 'Checking your Gold’s Gym membership…');
+
+    // Convert inputs array into a map
+    const inputsArray = event.detail.inputs || [];
+    const inputs = {};
+    inputsArray.forEach(function (item) {
+      inputs[item.name] = item.value;
+    });
+
+    const email = inputs[EMAIL_FIELD_NAME];
+    const gymLabel  = inputs[CLUB_FIELD_NAME];
+    const club = normalizeClub(gymLabel);
+
+    console.log('[GG Intakes] extracted email/club:', { email, club });
+
+    if (!email || !club) {
+      setStatus(statusBox, 'error', 'Missing email or gym location. Please try again.');
+      return;
+    }
+
+    if (USE_MOCK) {
+      /************* MOCKED API *************/
+      setTimeout(function () {
+        // flip this as needed or randomize
+        // const fakeStatus = 'eligible';
+        // const fakeStatus = 'ineligible';
+        const fakeStatus = Math.random() < 0.5 ? 'eligible' : 'ineligible';
+
+        if (fakeStatus === 'eligible') {
+          setStatus(statusBox, 'success', 'Great news! You are eligible. Redirecting…');
+          console.log('[GG Intakes] (mock) would redirect to:', ELIGIBLE_REDIRECT_URL);
+          // Uncomment to actually redirect while testing
+          // window.location.href = ELIGIBLE_REDIRECT_URL;
+        } else {
+          setStatus(statusBox, 'info', 'Thanks! Based on our records, you are not eligible for this upgrade.');
+          console.log('[GG Intakes] (mock) would redirect to:', INELIGIBLE_REDIRECT_URL);
+          // window.location.href = INELIGIBLE_REDIRECT_URL;
+        }
+      }, 1500);
+
+      return; // don’t hit real API when mocking
+    }
+
+    /************* REAL RAILS CALL *************/
+
+    const payload = {
+      credentials: {
+        email: email,
+        club: club
+      }
+    };
+
+    console.log('[GG Intakes] sending payload to Rails:', payload);
+
+    fetch(INTAKES_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload),
+      // credentials: 'omit'   // add 'include' if you ever need cookies
+    })
+      .then(function (response) {
+        // Even on 4xx/5xx we still try to parse JSON for {status: ...}
+        return response.json()
+          .catch(function () {
+            return {}; // JSON parse failed
+          })
+          .then(function (data) {
+            return { ok: response.ok, statusCode: response.status, data: data };
+          });
+      })
+      .then(function (res) {
+        console.log('[GG Intakes] Rails response:', res);
+        const data = res.data || {};
+        const apiStatus = data.status;
+
+        if (!apiStatus) {
+          setStatus(statusBox, 'error', 'Unexpected response from verification server. Please try again later.');
+          return;
+        }
+
+        if (apiStatus === 'eligible') {
+          setStatus(statusBox, 'success', 'Great news! You are eligible. Redirecting…');
+          window.location.href = ELIGIBLE_REDIRECT_URL;
+        } else if (apiStatus === 'ineligible' || apiStatus === 'not_found') {
+          setStatus(statusBox, 'info', 'Thanks! Based on our records, you are not eligible for this upgrade.');
+          window.location.href = INELIGIBLE_REDIRECT_URL;
+        } else if (apiStatus === 'upstream_error') {
+          setStatus(statusBox, 'error', 'Our membership system is temporarily unavailable. Please try again later.');
+        } else {
+          setStatus(statusBox, 'error', 'Something went wrong while verifying your membership. Please try again later.');
+        }
+      })
+      .catch(function (err) {
+        console.error('[GG Intakes] fetch error:', err);
+        setStatus(statusBox, 'error', 'We could not reach our verification server. Please check your connection and try again.');
+      });
+  });
+})();
+
+ // document.addEventListener('wpcf7mailfailed', function (event) {
+ //    const form = event.target;
+ //    const statusBox = ensureStatusBox(form);
+ //    setStatus(statusBox, 'error', 'We could not submit your request. Please review the form and try again.');
+ //  });
