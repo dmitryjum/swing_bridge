@@ -59,6 +59,29 @@ class AbcClient
     (freq == "bi-weekly" && amount > 24.99) ||
       (freq == "monthly" && amount > 49.0)
   end
+
+  def members_modified_between(start_time, end_time = Time.current)
+    range = "#{format_timestamp(start_time)},#{format_timestamp(end_time)}"
+
+    res = @client.get(
+      "#{@club}/members/personals",
+      params: { lastModifiedTimestampRange: range }
+    )
+    raise "ABC HTTP #{res.status}" unless res.success?
+
+    body = parse_body(res.body)
+    Array(body["members"])
+  end
+
+  private
+
+  def format_timestamp(time)
+    time.utc.strftime("%Y-%m-%d %H:%M:%S.000000")
+  end
+
+  def parse_body(body)
+    body || {}
+  end
 end
 
 

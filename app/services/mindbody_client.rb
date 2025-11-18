@@ -104,6 +104,18 @@ class MindbodyClient
     res.body
   end
 
+  def find_client_by_email(email)
+    raise NotImplementedError, "MindbodyClient#find_client_by_email not yet implemented"
+  end
+
+  def ensure_swing_active_for(client_hash)
+    raise NotImplementedError, "MindbodyClient#ensure_swing_active_for not yet implemented"
+  end
+
+  def ensure_swing_suspended_for(client_hash)
+    raise NotImplementedError, "MindbodyClient#ensure_swing_suspended_for not yet implemented"
+  end
+
   private
 
   def base_headers
