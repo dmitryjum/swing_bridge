@@ -148,9 +148,10 @@ class MindbodyClient
     res.body
   end
 
-  def update_client(client_id:, attrs: {})
+  def update_client(client_id:, attrs: {}, cross_regional_update: false)
     body = {
-      Client: { Id: client_id }.merge(attrs)
+      Client: { Id: client_id }.merge(attrs),
+      CrossRegionalUpdate: cross_regional_update
     }
 
     res = @http.post("client/updateclient",

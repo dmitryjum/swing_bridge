@@ -30,7 +30,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
     allow(MindbodyClient).to receive(:new).and_return(mindbody_client)
     allow(mindbody_client).to receive(:duplicate_clients).and_return(duplicate_response)
     allow(mindbody_client).to receive(:client_complete_info).and_return(client_complete_info_response)
-    allow(mindbody_client).to receive(:update_client).and_return({ "Client" => { "Id" => "abc" } })
+    allow(mindbody_client).to receive(:update_client).and_return({ "Client" => { "Id" => "abc", "Active" => true } })
   end
 
   describe "#perform" do
@@ -119,7 +119,9 @@ RSpec.describe MindbodyAddClientJob, type: :job do
             raw: {}
           }
         )
-        expect(mindbody_client).to receive(:update_client).with(client_id: "def", attrs: { Active: true }).and_return({ "Client" => { "Id" => "def" } })
+        expect(mindbody_client).to receive(:update_client).with(client_id: "def", attrs: { Active: true }).and_return(
+          { "Client" => { "Id" => "def", "Active" => true } }
+        )
 
         described_class.perform_now(intake_attempt_id: attempt.id, **payload)
 
