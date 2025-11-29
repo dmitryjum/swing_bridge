@@ -93,6 +93,72 @@ RSpec.describe "API V1 Intakes", type: :request do
     )
   end
 
+  it "returns mb_client_created when Mindbody client already exists" do
+    IntakeAttempt.create!(
+      club: club,
+      email: email,
+      status: :mb_success,
+      request_payload: { "club" => club, "email" => email }
+    )
+
+    stub_request(:get, personals_url)
+      .with(query: hash_including({ "email" => email }))
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: {
+          status: { nextPage: 0 },
+          members: [
+            {
+              "memberId" => "abc-123",
+              "personal" => {
+                "firstName" => "Mitch",
+                "lastName"  => "Conner",
+                "email"     => email
+              }
+            }
+          ]
+        }.to_json
+      )
+
+    stub_request(:get, member_url("abc-123"))
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: {
+          "members" => [
+            {
+              "memberId" => "abc-123",
+              "agreement" => {
+                "paymentFrequency" => "Monthly",
+                "nextDueAmount"    => 55.00
+              }
+            }
+          ]
+        }.to_json
+      )
+
+    post "/api/v1/intakes", params: { credentials: { club:, email: } }
+
+    expect(response).to have_http_status(:ok)
+    json = JSON.parse(response.body)
+    expect(json["status"]).to eq("mb_client_created")
+    expect(json.dig("member", "member_id")).to eq("abc-123")
+
+    attempt = IntakeAttempt.find_by(email: email, club: club)
+    expect(attempt.status).to eq("mb_success")
+    expect(attempt.attempts_count).to eq(2)
+    expect(MindbodyAddClientJob).to have_been_enqueued.with(
+      hash_including(
+        intake_attempt_id: attempt.id,
+        first_name: "Mitch",
+        last_name:  "Conner",
+        email:      email,
+        extras:     {}
+      )
+    )
+  end
+
   it "returns ineligible when agreement is below threshold" do
     stub_request(:get, personals_url)
       .with(query: hash_including({ "email" => email }))
