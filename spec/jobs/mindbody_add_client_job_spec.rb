@@ -96,7 +96,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
     context "when Mindbody returns duplicates" do
       let(:duplicate_response) do
         {
-          duplicates: [{ "Id" => "def", "Email" => "jane@example.com" }],
+          duplicates: [ { "Id" => "def", "Email" => "jane@example.com" } ],
           total_results: 1
         }
       end

@@ -96,7 +96,6 @@ class MindbodyClient
     pagination  = body["PaginationResponse"] || {}
     duplicates  = Array(body["ClientDuplicates"] || body["Clients"] || body["Duplicates"])
     total       = pagination["TotalResults"]
-    
     {
       duplicates: duplicates,
       total_results: total.nil? ? duplicates.size : total.to_i
@@ -165,7 +164,7 @@ class MindbodyClient
     res.body
   end
 
-   # Ask MindBody to send a password reset email to the given address.
+  # Ask MindBody to send a password reset email to the given address.
   # This uses the public API endpoint for password reset.
   def send_password_reset_email(first_name:, last_name:, email:)
     body = { UserFirstName: first_name, UserLastName: last_name, UserEmail: email }
