@@ -29,9 +29,17 @@ class MindbodyAddClientJob < ApplicationJob
 
       duplicate_client_details = nil
       duplicate_client_active = nil
+      duplicate_client_reactivated = false
       if matched_duplicate && matched_duplicate["Id"].present?
         duplicate_client_details = mb.client_complete_info(client_id: matched_duplicate["Id"])
         duplicate_client_active = duplicate_client_details[:active]
+
+        if duplicate_client_active == false
+          Rails.logger.info("[MindbodyAddClientJob] Reactivating MindBody client #{matched_duplicate["Id"]}")
+          mb.update_client(client_id: matched_duplicate["Id"], attrs: { Active: true })
+          duplicate_client_active = true
+          duplicate_client_reactivated = true
+        end
       end
 
       Rails.logger.info(
@@ -46,7 +54,8 @@ class MindbodyAddClientJob < ApplicationJob
               "total_results" => duplicate_count
             },
             "mindbody_duplicate_client" => duplicate_client_details && duplicate_client_details[:client],
-            "mindbody_duplicate_client_active" => duplicate_client_active
+            "mindbody_duplicate_client_active" => duplicate_client_active,
+            "mindbody_duplicate_client_reactivated" => duplicate_client_reactivated
           )
         attempt.update!(status: :mb_success, response_payload: merged_payload)
       end

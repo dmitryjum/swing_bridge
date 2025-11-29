@@ -30,6 +30,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
     allow(MindbodyClient).to receive(:new).and_return(mindbody_client)
     allow(mindbody_client).to receive(:duplicate_clients).and_return(duplicate_response)
     allow(mindbody_client).to receive(:client_complete_info).and_return(client_complete_info_response)
+    allow(mindbody_client).to receive(:update_client).and_return({ "Client" => { "Id" => "abc" } })
   end
 
   describe "#perform" do
@@ -100,7 +101,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
         }
       end
 
-      it "treats as success and stores duplicates metadata" do
+      it "reactivates an inactive duplicate and stores metadata" do
         attempt = IntakeAttempt.create!(
           club: "1552",
           email: "jane@example.com",
@@ -118,6 +119,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
             raw: {}
           }
         )
+        expect(mindbody_client).to receive(:update_client).with(client_id: "def", attrs: { Active: true }).and_return({ "Client" => { "Id" => "def" } })
 
         described_class.perform_now(intake_attempt_id: attempt.id, **payload)
 
@@ -126,9 +128,44 @@ RSpec.describe MindbodyAddClientJob, type: :job do
         expect(attempt.response_payload).to include(
           "mindbody_duplicates" => duplicate_response[:duplicates],
           "mindbody_duplicates_metadata" => { "total_results" => 1 },
-          "mindbody_duplicate_client_active" => false,
-          "mindbody_duplicate_client" => { "Id" => "def", "Active" => false }
+          "mindbody_duplicate_client_active" => true,
+          "mindbody_duplicate_client" => { "Id" => "def", "Active" => false },
+          "mindbody_duplicate_client_reactivated" => true
         )
+      end
+
+      context "when duplicate is already active" do
+        let(:client_complete_info_response) do
+          {
+            client: { "Id" => "def", "Active" => true },
+            active: true,
+            raw: {}
+          }
+        end
+
+        it "skips update" do
+          attempt = IntakeAttempt.create!(
+            club: "1552",
+            email: "jane@example.com",
+            status: "enqueued",
+            request_payload: {}
+          )
+
+          expect(mindbody_client).not_to receive(:ensure_required_client_fields!)
+          expect(mindbody_client).not_to receive(:add_client)
+          expect(mindbody_client).not_to receive(:send_password_reset_email)
+          expect(mindbody_client).to receive(:client_complete_info).with(client_id: "def").and_return(client_complete_info_response)
+          expect(mindbody_client).not_to receive(:update_client)
+
+          described_class.perform_now(intake_attempt_id: attempt.id, **payload)
+
+          attempt.reload
+          expect(attempt.status).to eq("mb_success")
+          expect(attempt.response_payload).to include(
+            "mindbody_duplicate_client_active" => true,
+            "mindbody_duplicate_client_reactivated" => false
+          )
+        end
       end
     end
   end

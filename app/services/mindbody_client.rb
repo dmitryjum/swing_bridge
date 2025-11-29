@@ -148,6 +148,22 @@ class MindbodyClient
     res.body
   end
 
+  def update_client(client_id:, attrs: {})
+    body = {
+      Client: { Id: client_id }.merge(attrs)
+    }
+
+    res = @http.post("client/updateclient",
+      headers: auth_headers,
+      body:    body)
+
+    unless res.success?
+      raise ApiError, "updateclient HTTP #{res.status} body=#{res.body.inspect}"
+    end
+
+    res.body
+  end
+
    # Ask MindBody to send a password reset email to the given address.
   # This uses the public API endpoint for password reset.
   def send_password_reset_email(first_name:, last_name:, email:)
