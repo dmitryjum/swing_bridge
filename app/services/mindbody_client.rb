@@ -96,7 +96,7 @@ class MindbodyClient
     pagination  = body["PaginationResponse"] || {}
     duplicates  = Array(body["ClientDuplicates"] || body["Clients"] || body["Duplicates"])
     total       = pagination["TotalResults"]
-
+    
     {
       duplicates: duplicates,
       total_results: total.nil? ? duplicates.size : total.to_i
@@ -106,6 +106,32 @@ class MindbodyClient
   # ---------------------------------------------------------------------------
   # BUSINESS: ADD CLIENT
   # ---------------------------------------------------------------------------
+
+  def client_complete_info(client_id:)
+    res = @http.get("client/clientcompleteinfo",
+      params: { clientId: client_id },
+      headers: auth_headers)
+
+    unless res.success?
+      raise ApiError, "clientcompleteinfo HTTP #{res.status} body=#{res.body.inspect}"
+    end
+
+    body = res.body || {}
+    client =
+      if body["Clients"].is_a?(Array)
+        body["Clients"].first
+      elsif body["Client"].is_a?(Hash)
+        body["Client"]
+      else
+        body
+      end
+
+    {
+      client: client,
+      active: client.is_a?(Hash) ? client["Active"] : nil,
+      raw: body
+    }
+  end
 
   # extras: hash of additional fields (MobilePhone, BirthDate, Country, State, etc.)
   def add_client(first_name:, last_name:, email:, extras: {})
@@ -128,7 +154,7 @@ class MindbodyClient
     body = { UserFirstName: first_name, UserLastName: last_name, UserEmail: email }
     res = @http.post("client/sendpasswordresetemail",
       headers: auth_headers,
-      body:    { Email: email })
+      body:    body)
     unless res.success?
       raise ApiError, "sendpasswordresetemail HTTP #{res.status} body=#{res.body.inspect}"
     end

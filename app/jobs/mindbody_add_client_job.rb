@@ -20,11 +20,22 @@ class MindbodyAddClientJob < ApplicationJob
     )
 
     duplicate_count = duplicate_lookup[:total_results].to_i
-    duplicates = duplicate_lookup[:duplicates]
+    duplicates = duplicate_lookup[:duplicates] || []
 
     if duplicate_count.positive?
+      matched_duplicate =
+        duplicates.find { |dup| dup["Email"].to_s.casecmp(email).zero? } ||
+        duplicates.first
+
+      duplicate_client_details = nil
+      duplicate_client_active = nil
+      if matched_duplicate && matched_duplicate["Id"].present?
+        duplicate_client_details = mb.client_complete_info(client_id: matched_duplicate["Id"])
+        duplicate_client_active = duplicate_client_details[:active]
+      end
+
       Rails.logger.info(
-        "[MindbodyAddClientJob] Duplicate MindBody client for #{email} (#{duplicate_count} matches) – treating as success"
+        "[MindbodyAddClientJob] Duplicate MindBody client for #{email} (#{duplicate_count} matches, active=#{duplicate_client_active.inspect}) – treating as success"
       )
 
       if attempt
@@ -33,14 +44,15 @@ class MindbodyAddClientJob < ApplicationJob
             "mindbody_duplicates" => duplicates,
             "mindbody_duplicates_metadata" => {
               "total_results" => duplicate_count
-            }
+            },
+            "mindbody_duplicate_client" => duplicate_client_details && duplicate_client_details[:client],
+            "mindbody_duplicate_client_active" => duplicate_client_active
           )
         attempt.update!(status: :mb_success, response_payload: merged_payload)
       end
 
       return
     end
-
     # Will raise ApiError if missing fields, same as controller
     mb.ensure_required_client_fields!(attrs)
 

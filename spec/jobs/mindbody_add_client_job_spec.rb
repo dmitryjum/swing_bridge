@@ -18,9 +18,18 @@ RSpec.describe MindbodyAddClientJob, type: :job do
     }
   end
 
+  let(:client_complete_info_response) do
+    {
+      client: { "Id" => "abc", "Active" => true },
+      active: true,
+      raw: {}
+    }
+  end
+
   before do
     allow(MindbodyClient).to receive(:new).and_return(mindbody_client)
     allow(mindbody_client).to receive(:duplicate_clients).and_return(duplicate_response)
+    allow(mindbody_client).to receive(:client_complete_info).and_return(client_complete_info_response)
   end
 
   describe "#perform" do
@@ -86,7 +95,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
     context "when Mindbody returns duplicates" do
       let(:duplicate_response) do
         {
-          duplicates: [{ "Client" => { "Id" => "def" }, "Email" => "jane@example.com" }],
+          duplicates: [{ "Id" => "def", "Email" => "jane@example.com" }],
           total_results: 1
         }
       end
@@ -102,6 +111,13 @@ RSpec.describe MindbodyAddClientJob, type: :job do
         expect(mindbody_client).not_to receive(:ensure_required_client_fields!)
         expect(mindbody_client).not_to receive(:add_client)
         expect(mindbody_client).not_to receive(:send_password_reset_email)
+        expect(mindbody_client).to receive(:client_complete_info).with(client_id: "def").and_return(
+          {
+            client: { "Id" => "def", "Active" => false },
+            active: false,
+            raw: {}
+          }
+        )
 
         described_class.perform_now(intake_attempt_id: attempt.id, **payload)
 
@@ -109,7 +125,9 @@ RSpec.describe MindbodyAddClientJob, type: :job do
         expect(attempt.status).to eq("mb_success")
         expect(attempt.response_payload).to include(
           "mindbody_duplicates" => duplicate_response[:duplicates],
-          "mindbody_duplicates_metadata" => { "total_results" => 1 }
+          "mindbody_duplicates_metadata" => { "total_results" => 1 },
+          "mindbody_duplicate_client_active" => false,
+          "mindbody_duplicate_client" => { "Id" => "def", "Active" => false }
         )
       end
     end
