@@ -11,8 +11,16 @@ RSpec.describe MindbodyAddClientJob, type: :job do
     }
   end
 
+  let(:duplicate_response) do
+    {
+      duplicates: [],
+      total_results: 0
+    }
+  end
+
   before do
     allow(MindbodyClient).to receive(:new).and_return(mindbody_client)
+    allow(mindbody_client).to receive(:duplicate_clients).and_return(duplicate_response)
   end
 
   describe "#perform" do
@@ -41,6 +49,11 @@ RSpec.describe MindbodyAddClientJob, type: :job do
         email:      "jane@example.com",
         extras:     { BirthDate: "2000-01-01", MobilePhone: "555-1234" }
       ).and_return({ "Client" => { "Id" => "abc" } })
+      expect(mindbody_client).to receive(:send_password_reset_email).with(
+        first_name: "Jane",
+        last_name:  "Doe",
+        email:      "jane@example.com"
+      ).and_return(nil)
 
       described_class.perform_now(intake_attempt_id: attempt.id, **payload)
 
@@ -69,6 +82,36 @@ RSpec.describe MindbodyAddClientJob, type: :job do
       attempt.reload
       expect(attempt.status).to eq("mb_failed")
       expect(attempt.error_message).to eq("boom")
+    end
+    context "when Mindbody returns duplicates" do
+      let(:duplicate_response) do
+        {
+          duplicates: [{ "Client" => { "Id" => "def" }, "Email" => "jane@example.com" }],
+          total_results: 1
+        }
+      end
+
+      it "treats as success and stores duplicates metadata" do
+        attempt = IntakeAttempt.create!(
+          club: "1552",
+          email: "jane@example.com",
+          status: "enqueued",
+          request_payload: {}
+        )
+
+        expect(mindbody_client).not_to receive(:ensure_required_client_fields!)
+        expect(mindbody_client).not_to receive(:add_client)
+        expect(mindbody_client).not_to receive(:send_password_reset_email)
+
+        described_class.perform_now(intake_attempt_id: attempt.id, **payload)
+
+        attempt.reload
+        expect(attempt.status).to eq("mb_success")
+        expect(attempt.response_payload).to include(
+          "mindbody_duplicates" => duplicate_response[:duplicates],
+          "mindbody_duplicates_metadata" => { "total_results" => 1 }
+        )
+      end
     end
   end
 end
