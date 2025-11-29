@@ -77,12 +77,30 @@ class MindbodyClient
     end
   end
 
-  def find_clients(search_text:)
-    res = @http.get("client/clients",
-      params: { SearchText: search_text },
+  def duplicate_clients(first_name:, last_name:, email:)
+    res = @http.get("client/clientduplicates",
+      params: {
+        firstName: first_name,
+        lastName:  last_name,
+        email:     email
+      },
       headers: auth_headers)
-    raise ApiError, "clients HTTP #{res.status}" unless res.success?
-    res.body
+
+    unless res.success?
+      raise ApiError, "clientduplicates HTTP #{res.status} body=#{res.body.inspect}"
+    end
+
+    # Public API wraps duplicates in ClientDuplicates w/ pagination metadata.
+    # We only read the current page because we expect at most a single duplicate per email.
+    body        = res.body || {}
+    pagination  = body["PaginationResponse"] || {}
+    duplicates  = Array(body["ClientDuplicates"] || body["Clients"] || body["Duplicates"])
+    total       = pagination["TotalResults"]
+
+    {
+      duplicates: duplicates,
+      total_results: total.nil? ? duplicates.size : total.to_i
+    }
   end
 
   # ---------------------------------------------------------------------------
@@ -100,6 +118,21 @@ class MindbodyClient
     unless res.success?
       raise ApiError, "addclient HTTP #{res.status} body=#{res.body.inspect}"
     end
+
+    res.body
+  end
+
+   # Ask MindBody to send a password reset email to the given address.
+  # This uses the public API endpoint for password reset.
+  def send_password_reset_email(first_name:, last_name:, email:)
+    body = { UserFirstName: first_name, UserLastName: last_name, UserEmail: email }
+    res = @http.post("client/sendpasswordresetemail",
+      headers: auth_headers,
+      body:    { Email: email })
+    unless res.success?
+      raise ApiError, "sendpasswordresetemail HTTP #{res.status} body=#{res.body.inspect}"
+    end
+    Rails.logger.info("[MindbodyAddClientJob] Sent password reset email for #{email}")
 
     res.body
   end
