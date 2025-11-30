@@ -9,11 +9,13 @@ class Api::V1::IntakesController < ApplicationController
 
     attempt = IntakeAttempt.find_or_initialize_by(email: email, club: club)
     client = AbcClient.new(club: credential_params[:club])
+
     if attempt.new_record?
       attempt.status = :pending
     else
+      mb_client_created = attempt.persisted? && attempt.status == "mb_success"
       attempt.attempts_count += 1
-      attempt.status = :pending
+      attempt.status = :pending unless mb_client_created
     end
     attempt.request_payload = credential_params.to_h
     attempt.save!
@@ -21,15 +23,16 @@ class Api::V1::IntakesController < ApplicationController
     member_summary = client.find_member_by_email(credential_params[:email])
     return update_and_render_not_found(attempt) unless member_summary
 
-    attempt.update!(status: :found, response_payload: member_summary)
     agreement = client.get_member_agreement || {}
     member_payload = member_summary.merge(
       payment_freq:    agreement["paymentFrequency"],
       next_due_amount: agreement["nextDueAmount"]
     )
+    attempt.update!(status: :found, response_payload: member_summary) unless mb_client_created
+
     if client.upgradable?
       extras = build_mindbody_extras(client.requested_personal)
-      attempt.update!(status: :eligible, response_payload: member_payload)
+      attempt.update!(status: :eligible, response_payload: member_payload) unless mb_client_created
       MindbodyAddClientJob.perform_later(
         intake_attempt_id: attempt.id,
         first_name: member_summary[:first_name],
@@ -38,8 +41,12 @@ class Api::V1::IntakesController < ApplicationController
         extras:     extras
       )
 
-      attempt.update!(status: :enqueued)
-      render json: { status: "eligible", member: member_payload }, status: :ok
+      attempt.update!(status: :enqueued) unless mb_client_created
+      if mb_client_created
+        render json: { status: "mb_client_created", member: member_payload }, status: :ok
+      else
+        render json: { status: "eligible", member: member_payload }, status: :ok
+      end
     else
       attempt.update!(status: :ineligible, response_payload: member_payload)
       render json: { status: "ineligible", member: member_payload }, status: :ok

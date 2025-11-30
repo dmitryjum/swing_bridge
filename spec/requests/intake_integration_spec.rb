@@ -42,55 +42,36 @@ RSpec.describe "API V1 Intakes Integration", type: :request do
   end
 
   context "when stubbing the ABC client" do
-    xit "returns eligible status for a member" do
-      # Stub the find_member_by_email method to return an eligible member
-      abc_client = instance_double(AbcClient)
-      allow(AbcClient).to receive(:new).and_return(abc_client)
-      allow(abc_client).to receive(:find_member_by_email).with(anything).and_return({
-        member_id: "12345",
-        first_name: "John",
-        last_name: "Doe",
-        email: "john.doe@example.com"
-      })
+    xit "calls Mindbody to create a client directly" do
+      attempt = IntakeAttempt.create!(
+        club: "1552",
+        email: "john.doe@example.com",
+        status: "enqueued",
+        request_payload: {}
+      )
 
-      # Stub the get_member_agreement method to return an agreement with an upgradable next due amount
-      allow(abc_client).to receive(:get_member_agreement).and_return({
-        "paymentFrequency" => "Monthly",
-        "nextDueAmount" => "50.00"  # This amount is above the upgradable threshold
-      })
+      expect do
+        MindbodyAddClientJob.perform_now(
+          intake_attempt_id: attempt.id,
+          first_name: "John",
+          last_name: "Doe",
+          email: "john.doe@example.com",
+          extras: {
+            BirthDate: "1990-01-01",
+            MobilePhone: "(555) 555-5555",
+            AddressLine1: "123 Main St",
+            City: "Anytown",
+            State: "NY",
+            PostalCode: "12345",
+            Country: "US"
+          }
+        )
+      end.not_to raise_error
 
-      # Stub the requested_personal method to return the required fields
-      allow(abc_client).to receive(:requested_personal).and_return({
-        "firstName" => "John",
-        "lastName" => "Doe",
-        "birthDate" => "1990-01-01",  # Required field for MindBody
-        "email" => "john.doe@example.com",
-        "mobilePhone" => "(555) 555-5555",
-        "addressLine1" => "123 Main St",
-        "city" => "Anytown",
-        "state" => "NY",
-        "postalCode" => "12345",
-        "countryCode" => "US"
-      })
-
-      allow(abc_client).to receive(:upgradable?).and_return(true)
-
-      post "/api/v1/intakes",
-        params: {
-          credentials: { club: "1552", email: "john.doe@example.com" }
-        }
-      expect(response).to have_http_status(:ok)
-      json = JSON.parse(response.body)
-
-      # Verify response for eligible member
-      expect(json["status"]).to eq("eligible")
-      expect(json.dig("member", "member_id")).to be_present
-
-      # Check that job was enqueued
-      expect(MindbodyAddClientJob).to have_been_enqueued
-
-      # Perform the job and inspect Mindbody response
-      perform_enqueued_jobs
+      attempt.reload
+      expect(attempt.status).to eq("mb_success")
+      expect(attempt.response_payload).to include("Client")
+      expect(attempt.response_payload.dig("Client", "Id")).to be_present
     end
   end
 end
