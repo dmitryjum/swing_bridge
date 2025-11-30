@@ -1,0 +1,36 @@
+<%
+  truncate_json = lambda do |payload|
+    return "nil" if payload.nil?
+    json = payload.to_json
+    json.length > 1000 ? "#{json[0, 1000]}..." : json
+  rescue => e
+    "failed to render JSON: #{e.class}: #{e.message}"
+  end
+%>
+Environment: <%= Rails.env %>
+Time: <%= Time.current %>
+
+IntakeAttempt:
+  id: <%= @attempt&.id || "n/a" %>
+  status: <%= @attempt&.status || "n/a" %>
+  attempts_count: <%= @attempt&.attempts_count || "n/a" %>
+  club: <%= @attempt&.club || "n/a" %>
+  email: <%= @attempt&.email || "n/a" %>
+  created_at: <%= @attempt&.created_at || "n/a" %>
+  updated_at: <%= @attempt&.updated_at || "n/a" %>
+
+Error:
+  class: <%= @error&.class %>
+  message: <%= @error&.message %>
+  backtrace:
+<% if @error&.backtrace.present? %>
+<%= @error.backtrace.first(10).join("\n") %>
+<% else %>
+  none
+<% end %>
+
+Request payload (truncated to 1000 chars):
+<%= truncate_json.call(@attempt&.request_payload) %>
+
+Response payload (truncated to 1000 chars):
+<%= truncate_json.call(@attempt&.response_payload) %>

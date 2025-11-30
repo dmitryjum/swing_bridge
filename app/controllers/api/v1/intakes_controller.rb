@@ -54,10 +54,12 @@ class Api::V1::IntakesController < ApplicationController
   rescue Faraday::TimeoutError, Faraday::ConnectionFailed => e
     attempt&.update!(status: :upstream_error, error_message: e.message)
     Rails.logger.warn("[ABC upstream] #{e.class}: #{e.message}")
+    AdminMailer.intake_failure(attempt, e).deliver_later
     render json: { status: "upstream_error", error: "ABC unavailable" }, status: :bad_gateway
   rescue => e
     attempt&.update!(status: :failed, error_message: e.message)
     Rails.logger.error("[Intakes#create] #{e.class}: #{e.message}")
+    AdminMailer.intake_failure(attempt, e).deliver_later
     render json: { status: "error" }, status: :internal_server_error
   end
 
