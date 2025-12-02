@@ -63,10 +63,7 @@ class MindbodyClient
   # ---------------------------------------------------------------------------
 
   def required_client_fields
-    res = @http.get("client/requiredclientfields",
-      headers: auth_headers)
-    raise ApiError, "requiredclientfields HTTP #{res.status}" unless res.success?
-    res.body
+    request(method: :get, path: "client/requiredclientfields").body
   end
 
   def ensure_required_client_fields!(attrs)
@@ -78,17 +75,16 @@ class MindbodyClient
   end
 
   def duplicate_clients(first_name:, last_name:, email:)
-    res = @http.get("client/clientduplicates",
+    res = request(
+      method: :get,
+      path: "client/clientduplicates",
       params: {
         firstName: first_name,
         lastName:  last_name,
         email:     email
       },
-      headers: auth_headers)
-
-    unless res.success?
-      raise ApiError, "clientduplicates HTTP #{res.status} body=#{res.body.inspect}"
-    end
+      error_label: "clientduplicates"
+    )
 
     # Public API wraps duplicates in ClientDuplicates w/ pagination metadata.
     # We only read the current page because we expect at most a single duplicate per email.
@@ -107,13 +103,12 @@ class MindbodyClient
   # ---------------------------------------------------------------------------
 
   def client_complete_info(client_id:)
-    res = @http.get("client/clientcompleteinfo",
+    res = request(
+      method: :get,
+      path: "client/clientcompleteinfo",
       params: { clientId: client_id },
-      headers: auth_headers)
-
-    unless res.success?
-      raise ApiError, "clientcompleteinfo HTTP #{res.status} body=#{res.body.inspect}"
-    end
+      error_label: "clientcompleteinfo"
+    )
 
     body = res.body || {}
     client =
@@ -136,15 +131,12 @@ class MindbodyClient
   def add_client(first_name:, last_name:, email:, extras: {})
     body = { FirstName: first_name, LastName: last_name, Email: email }.merge(extras)
 
-    res = @http.post("client/addclient",
-      headers: auth_headers,
-      body:    body)
-
-    unless res.success?
-      raise ApiError, "addclient HTTP #{res.status} body=#{res.body.inspect}"
-    end
-
-    res.body
+    request(
+      method: :post,
+      path: "client/addclient",
+      body: body,
+      error_label: "addclient"
+    ).body
   end
 
   def update_client(client_id:, attrs: {}, cross_regional_update: false)
@@ -153,33 +145,58 @@ class MindbodyClient
       CrossRegionalUpdate: cross_regional_update
     }
 
-    res = @http.post("client/updateclient",
-      headers: auth_headers,
-      body:    body)
-
-    unless res.success?
-      raise ApiError, "updateclient HTTP #{res.status} body=#{res.body.inspect}"
-    end
-
-    res.body
+    request(
+      method: :post,
+      path: "client/updateclient",
+      body: body,
+      error_label: "updateclient"
+    ).body
   end
 
   # Ask MindBody to send a password reset email to the given address.
   # This uses the public API endpoint for password reset.
   def send_password_reset_email(first_name:, last_name:, email:)
     body = { UserFirstName: first_name, UserLastName: last_name, UserEmail: email }
-    res = @http.post("client/sendpasswordresetemail",
-      headers: auth_headers,
-      body:    body)
-    unless res.success?
-      raise ApiError, "sendpasswordresetemail HTTP #{res.status} body=#{res.body.inspect}"
-    end
+    res = request(
+      method: :post,
+      path: "client/sendpasswordresetemail",
+      body: body,
+      error_label: "sendpasswordresetemail"
+    )
     Rails.logger.info("[MindbodyAddClientJob] Sent password reset email for #{email}")
 
     res.body
   end
 
+  # Fire an arbitrary MindBody endpoint (handy in console).
+  # Example: MindbodyClient.new.call_endpoint("client/clients", params: { limit: 5 })
+  def call_endpoint(path, method: :get, params: nil, body: nil, headers: nil, auth: true)
+    res = request(
+      method: method,
+      path: path,
+      params: params,
+      body: body,
+      headers: headers || (auth ? auth_headers : base_headers),
+      error_label: path
+    )
+    res.body
+  end
+
   private
+
+  def request(method:, path:, params: nil, body: nil, headers: nil, error_label: nil)
+    res = @http.public_send(method, path,
+      params: params,
+      body: body,
+      headers: headers || auth_headers)
+
+    unless res.success?
+      label = error_label || path
+      raise ApiError, "#{label} HTTP #{res.status} body=#{res.body.inspect}"
+    end
+
+    res
+  end
 
   def base_headers
     {
