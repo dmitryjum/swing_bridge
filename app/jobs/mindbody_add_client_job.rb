@@ -2,10 +2,16 @@
 class MindbodyAddClientJob < ApplicationJob
   queue_as :default
 
+  TARGET_CONTRACT_NAME = "Swing - Membership (Gold's Member)".freeze
+  TARGET_LOCATION_ID = 1
+
   # All args must be simple JSON-serializable types
   def perform(intake_attempt_id: nil, first_name:, last_name:, email:, extras: {})
     attempt = IntakeAttempt.find_by(id: intake_attempt_id) if intake_attempt_id
     mb = MindbodyClient.new
+    target_contract_id = nil
+    contract_purchase = nil
+    password_reset_sent = false
 
     attrs = {
       "FirstName" => first_name,
@@ -13,7 +19,7 @@ class MindbodyAddClientJob < ApplicationJob
       "Email" => email
     }.merge(extras.stringify_keys)
 
-    duplicate_lookup = mb.duplicate_clients(
+    duplicate_lookup = mb.duplicate_clients( # see if identical clients have already been added
       first_name: first_name,
       last_name:  last_name,
       email:      email
@@ -22,7 +28,7 @@ class MindbodyAddClientJob < ApplicationJob
     duplicate_count = duplicate_lookup[:total_results].to_i
     duplicates = duplicate_lookup[:duplicates] || []
 
-    if duplicate_count.positive?
+    if duplicate_count.positive? # the same client is already in MindBody
       matched_duplicate =
         duplicates.find { |dup| dup["Email"].to_s.casecmp(email).zero? } ||
         duplicates.first
@@ -33,8 +39,9 @@ class MindbodyAddClientJob < ApplicationJob
       if matched_duplicate && matched_duplicate["Id"].present?
         duplicate_client_details = mb.client_complete_info(client_id: matched_duplicate["Id"])
         duplicate_client_active = duplicate_client_details[:active]
+        duplicate_client = duplicate_client_details[:client] || duplicate_client_details
 
-        if duplicate_client_active == false
+        if duplicate_client_active == false # activate inactive client
           Rails.logger.info("[MindbodyAddClientJob] Reactivating MindBody client #{matched_duplicate["Id"]}")
           update_response = mb.update_client(client_id: matched_duplicate["Id"], attrs: { Active: true })
           duplicate_client_active = update_response.dig("Client", "Active")
@@ -44,6 +51,31 @@ class MindbodyAddClientJob < ApplicationJob
             )
           end
           duplicate_client_reactivated = true
+        end
+      end
+
+      duplicate_client ||= matched_duplicate
+      client_id = duplicate_client && duplicate_client["Id"]
+      client_contracts = []
+      has_contract = false
+
+      if client_id.present?
+        target_contract_id ||= resolve_target_contract_id!(mb)
+        client_contracts = mb.client_contracts(client_id: client_id)
+        has_contract = client_contracts.any? { |contract| contract["Id"].to_s == target_contract_id.to_s }
+
+        unless has_contract
+          contract_purchase = purchase_target_contract!(
+            mb: mb,
+            client_id: client_id,
+            contract_id: target_contract_id
+          )
+          has_contract = true
+        end
+
+        if duplicate_client_reactivated
+          mb.send_password_reset_email(first_name:, last_name:, email:)
+          password_reset_sent = true
         end
       end
 
@@ -58,9 +90,12 @@ class MindbodyAddClientJob < ApplicationJob
             "mindbody_duplicates_metadata" => {
               "total_results" => duplicate_count
             },
-            "mindbody_duplicate_client" => duplicate_client_details && duplicate_client_details[:client],
+            "mindbody_duplicate_client" => duplicate_client,
             "mindbody_duplicate_client_active" => duplicate_client_active,
-            "mindbody_duplicate_client_reactivated" => duplicate_client_reactivated
+            "mindbody_duplicate_client_reactivated" => duplicate_client_reactivated,
+            "mindbody_client_contracts" => client_contracts,
+            "mindbody_contract_purchase" => contract_purchase,
+            "mindbody_password_reset_sent" => password_reset_sent
           )
         attempt.update!(status: :mb_success, response_payload: merged_payload)
       end
@@ -77,13 +112,30 @@ class MindbodyAddClientJob < ApplicationJob
       extras:     extras.symbolize_keys
     )
 
+    client_id = result.dig("Client", "Id")
+    raise MindbodyClient::ApiError, "MindBody did not return a client Id after add_client" if client_id.blank?
+
+    target_contract_id ||= resolve_target_contract_id!(mb)
+    contract_purchase = purchase_target_contract!(
+      mb: mb,
+      client_id: client_id,
+      contract_id: target_contract_id
+    )
+
     mb.send_password_reset_email(first_name:, last_name:, email:)
+    password_reset_sent = true
 
     Rails.logger.info(
       "[MindbodyAddClientJob] Created client #{email} " \
       "-> #{result.dig("Client", "Id") || result.inspect}"
     )
-    attempt&.update!(status: :mb_success, response_payload: result)
+    if attempt
+      merged_payload = result.merge(
+        "mindbody_contract_purchase" => contract_purchase,
+        "mindbody_password_reset_sent" => password_reset_sent
+      )
+      attempt.update!(status: :mb_success, response_payload: merged_payload)
+    end
   rescue MindbodyClient::AuthError, MindbodyClient::ApiError => e
     Rails.logger.error("[MindbodyAddClientJob] #{e.class}: #{e.message}")
     attempt&.update!(status: :mb_failed, error_message: e.message)
@@ -93,5 +145,24 @@ class MindbodyAddClientJob < ApplicationJob
     Rails.logger.error("[MindbodyAddClientJob] Unexpected error: #{e.class}: #{e.message}")
     attempt&.update!(status: :failed, error_message: e.message)
     raise
+  end
+
+  private
+
+  def resolve_target_contract_id!(mb)
+    contract_id = mb.find_contract_id_by_name(TARGET_CONTRACT_NAME, location_id: TARGET_LOCATION_ID)
+    if contract_id.blank?
+      raise MindbodyClient::ApiError, "MindBody contract not found: #{TARGET_CONTRACT_NAME}"
+    end
+    contract_id
+  end
+
+  def purchase_target_contract!(mb:, client_id:, contract_id:)
+    mb.purchase_contract(
+      client_id: client_id,
+      contract_id: contract_id,
+      location_id: TARGET_LOCATION_ID,
+      send_notifications: true
+    )
   end
 end

@@ -182,7 +182,63 @@ class MindbodyClient
     res.body
   end
 
+  def contracts(location_id:, force_refresh: false)
+    @contracts_cache ||= {}
+    @contracts_cache.delete(location_id) if force_refresh
+    @contracts_cache[location_id] ||= begin
+      res = request(
+        method: :get,
+        path: "sale/getcontracts",
+        params: { locationId: location_id },
+        error_label: "getcontracts"
+      )
+      Array(res.body && res.body["Contracts"])
+    end
+  end
+
+  def find_contract_id_by_name(name, location_id:)
+    target = normalize_contract_name(name)
+    list   = contracts(location_id: location_id)
+
+    exact = list.find { |contract| normalize_contract_name(contract["Name"]) == target }
+    return exact["Id"] if exact
+
+    fuzzy = list.find do |contract|
+      norm = normalize_contract_name(contract["Name"])
+      norm.include?(target) || target.include?(norm)
+    end
+    fuzzy && fuzzy["Id"]
+  end
+
+  def client_contracts(client_id:)
+    res = request(
+      method: :get,
+      path: "client/clientcontracts",
+      params: { clientId: client_id },
+      error_label: "clientcontracts"
+    )
+    Array(res.body && res.body["Contracts"])
+  end
+
+  def purchase_contract(client_id:, contract_id:, location_id:, send_notifications: true)
+    request(
+      method: :post,
+      path: "sale/purchasecontract",
+      body: {
+        ClientId: client_id,
+        ContractId: contract_id,
+        LocationId: location_id,
+        SendNotifications: send_notifications
+      },
+      error_label: "purchasecontract"
+    ).body
+  end
+
   private
+
+  def normalize_contract_name(name)
+    name.to_s.downcase.gsub(/[^a-z0-9]+/, " ").squeeze(" ").strip
+  end
 
   def request(method:, path:, params: nil, body: nil, headers: nil, error_label: nil)
     res = @http.public_send(method, path,
