@@ -12,6 +12,10 @@ class ExceptionSerializer < ActiveJob::Serializers::ObjectSerializer
     )
   end
 
+  def klass
+    Exception
+  end
+
   def deserialize(hash)
     klass = hash["class"].safe_constantize rescue nil
     klass ||= RuntimeError
