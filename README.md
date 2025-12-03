@@ -1,170 +1,154 @@
-# 🏋️‍♂️ Gold’s Gym Membership Bridge (ABC → MindBody)
+# Gold's Gym Membership Bridge (ABC -> MindBody)
 
-A lightweight **Rails API-only service** that connects Gold’s Gym’s **ABC Financial** membership data with **MindBody** accounts.
-This service verifies member eligibility based on their ABC membership details and prepares accounts for migration to MindBody.
-
----
-
-## ⚙️ Tech Stack
-
-* **Ruby** 3.3.8
-* **Rails** 8.1 (API-only mode)
-* **RSpec** for testing
-* **Faraday** for HTTP requests
-* **WebMock** for HTTP stubbing in tests
-* **Solid Queue** for background job processing
-* **MindBody Public API** *(integration upcoming)*
+Rails API-only bridge that validates Gold's Gym members in ABC Financial and provisions/updates matching MindBody clients through a Solid Queue job. Intake requests are persisted so retries, MindBody outcomes, and admin alerts can be audited.
 
 ---
 
-## 🧩 Features
+## What the app does
 
-### ✅ Phase 1 – ABC Integration
-
-* `POST /api/v1/intakes`
-
-  * Accepts a member’s **club number** and **email** (plus optional name).
-  * Looks up the member in **ABC Financial API**.
-  * Retrieves membership details and payment plan.
-  * Determines eligibility for MindBody migration.
-  * Returns structured JSON response:
-
-    ```json
-    {
-      "status": "eligible",
-      "member": {
-        "member_id": "abc-123",
-        "first_name": "Mitch",
-        "last_name": "Conner",
-        "email": "mitch@example.com",
-        "payment_freq": "Monthly",
-        "next_due": 55.0
-      }
-    }
-    ```
-
-* Handles:
-
-  * `eligible` / `ineligible` / `not_found` results
-  * Network errors (timeouts, upstream failures)
-  * Simple logging for ABC API requests
-
-### 🚧 Phase 2 – MindBody Integration *(in progress)*
-
-* Background job (Solid Queue) to create or update client accounts in MindBody.
-* One-way sync based on ABC membership status and due amount thresholds.
-* Admin error emails sent from controller/job failure paths (plain-text templates in `app/views/admin_mailer`).
+- `POST /api/v1/intakes` accepts `credentials: { club, email }` and looks up the member in ABC.
+- ABC agreement data is evaluated against upgrade thresholds (bi-weekly > 24.99 or monthly > 49). Ineligible members are returned immediately.
+- Eligible requests enqueue `MindbodyAddClientJob`, which creates or reactivates a MindBody client, purchases the target contract, and sends a password reset email.
+- All attempts are stored in `IntakeAttempt` with statuses (`pending`, `found`, `eligible`, `enqueued`, `mb_success`, `mb_failed`, `ineligible`, `member_missing`, `upstream_error`, `failed`) so the UI or admin emails can reflect history.
+- AdminMailer notifies on ABC failures (controller) and MindBody failures (job); production uses SMTP, development writes `.eml` files to `tmp/mail`.
+- Mission Control Jobs UI is mounted at `/api/v1/jobs` for monitoring Solid Queue (auth/configure upstream if exposing).
 
 ---
 
-## 📁 Project Structure
+## Tech stack
 
-```
-app/
-  controllers/api/v1/intakes_controller.rb
-  services/
-    abc_client.rb
-    http_client.rb
-spec/
-  requests/intakes_spec.rb
-  fixtures/abc/...
+- Ruby 3.3.8, Rails 8.1 (API mode)
+- Postgres (primary DB + Solid Queue tables)
+- Solid Queue + mission_control-jobs for job execution/inspection
+- Faraday (+ faraday-retry), Oj
+- RSpec, WebMock, FactoryBot
+
+---
+
+## Architecture & flow
+
+1) **Intake** (`Api::V1::IntakesController#create`)
+   - Finds or initializes an `IntakeAttempt` keyed by `club` + `email`, increments `attempts_count` on retries, and tracks request/response payloads.
+   - Calls `AbcClient#find_member_by_email`; if none, marks `member_missing` and returns `status: not_found`.
+   - Pulls agreement via `AbcClient#get_member_agreement` and builds MindBody extras (phone/address/birth date) from ABC personal data.
+   - If upgradeable, enqueues `MindbodyAddClientJob` and returns `status: eligible` (or `mb_client_created` if an earlier job already succeeded). Otherwise returns `status: ineligible`.
+   - On ABC network errors: marks `upstream_error`, logs, and emails admins. On other errors: marks `failed` and emails admins.
+
+2) **MindBody job** (`MindbodyAddClientJob`)
+   - Validates required fields against `MindbodyClient#required_client_fields`.
+   - Dedupes via `clientduplicates`; if a matching client exists, fetches details, reactivates inactive accounts, ensures the target contract exists, purchases it if missing, and records duplicate metadata. Optionally triggers a password reset when reactivating.
+   - If no duplicate, calls `addclient`, then purchases the contract and triggers password reset email.
+   - Updates `IntakeAttempt` to `mb_success` with MindBody response/metadata. On `AuthError`/`ApiError`, sets `mb_failed`, emails admins, and re-raises so Solid Queue can retry. Unexpected errors set `failed` and notify admins.
+
+3) **MindbodyClient service**
+   - Handles bearer token issuance via `usertoken/issue` (or uses `MBO_STATIC_TOKEN` when set).
+   - Provides helpers used by the job: `duplicate_clients`, `client_complete_info`, `add_client`, `update_client`, `client_contracts`, `find_contract_by_name`, `purchase_contract`, `send_password_reset_email`, plus `call_endpoint` for console debugging.
+   - Uses a safe placeholder credit card when MindBody requires payment info for $0 contracts.
+
+4) **Data model**
+   - `IntakeAttempt` table (unique on `club` + `email`) captures request/response payloads, attempts_count, status, and error_message for auditing and idempotency.
+
+5) **Operations**
+   - Background worker runs via Solid Queue (`bin/rails solid_queue:start` or `bin/jobs start`); Procfile/Foreman (`bin/dev`) runs web + worker together.
+   - Mission Control Jobs UI at `/api/v1/jobs` for queue visibility.
+   - Rake task `intake_attempts:cleanup` deletes attempts older than 6 months.
+   - `config/recurring.yml` schedules hourly cleanup of finished Solid Queue jobs in production.
+
+---
+
+## API
+
+`POST /api/v1/intakes`
+
+Request:
+```json
+{
+  "credentials": { "club": "1552", "email": "mitch@example.com" }
+}
 ```
 
----
+Responses:
+- `eligible` with member payload and enqueued background job
+- `mb_client_created` when the MindBody job already succeeded for this club/email
+- `ineligible` (agreement below threshold)
+- `not_found` (no ABC match)
+- `upstream_error` (ABC network issue)
+- `error` (unexpected server error)
 
-## 🔑 Environment Variables
-
-| Variable                | Description                                              |
-| ----------------------- | -------------------------------------------------------- |
-| `ABC_BASE`              | Base API URL (e.g. `https://api.abcfinancial.com/rest/`) |
-| `ABC_APP_ID`            | ABC application ID                                       |
-| `ABC_APP_KEY`           | ABC API key                                              |
-| `ABC_CLUB` *(optional)* | Default club number                                      |
-| `APP_HOST`              | Host used in mailer URLs (e.g. `api.yourdomain.com`)     |
-| `SMTP_USERNAME`         | Gmail login used for SMTP (e.g. `you@gmail.com`)         |
-| `SMTP_PASSWORD`         | Gmail App Password (16-char app password)                |
-| `ERROR_NOTIFIER_FROM`   | From address for admin error emails (use the Gmail or a verified alias) |
-| `ERROR_NOTIFIER_RECIPIENTS` | Comma-separated admin emails (e.g. `you@gmail.com,other@gmail.com`) |
-
-Example `.env` file:
-
-```
-ABC_BASE=https://api.abcfinancial.com/rest/
-ABC_APP_ID=your_app_id
-ABC_APP_KEY=your_app_key
-ABC_CLUB=99003
-APP_HOST=api.yourdomain.com
-SMTP_USERNAME=you@gmail.com
-SMTP_PASSWORD=your_16_char_app_password
-ERROR_NOTIFIER_FROM=alerts@yourdomain.com
-ERROR_NOTIFIER_RECIPIENTS=you@gmail.com,other@gmail.com
-```
-Note: in development, mail delivery uses `:file` and writes to `tmp/mail`; open the `.eml` files locally. Production uses SMTP.
+Health check: `GET /up` (also root).
 
 ---
 
-## 🚀 Setup & Usage
+## Setup
 
+1) Prereqs: Ruby 3.3.8, Postgres, bundler.
+2) Install deps and prep DB:
 ```bash
-# Install dependencies
 bundle install
-
-# Run the server
+bin/rails db:prepare   # creates main + solid_queue tables
+```
+3) Run locally (web + Solid Queue worker):
+```bash
+bin/dev               # foreman; uses Procfile (web + worker)
+# or run separately:
 bin/rails s
-
-# Example request (curl)
+bin/rails solid_queue:start   # or: bin/jobs start
+```
+4) Sample intake:
+```bash
 curl -X POST http://localhost:3000/api/v1/intakes \
   -H "Content-Type: application/json" \
-  -d '{
-    "credentials": { "club": "1552", "email": "mitch@example.com" },
-    "name": "Mitch Conner"
-  }'
+  -d '{"credentials":{"club":"1552","email":"mitch@example.com"}}'
 ```
+
+Mission Control Jobs UI: http://localhost:3000/api/v1/jobs (dev).
 
 ---
 
-## 🧪 Testing
+## Environment
+
+ABC:
+- `ABC_BASE` (e.g. https://api.abcfinancial.com/rest/)
+- `ABC_APP_ID`
+- `ABC_APP_KEY`
+- `ABC_CLUB` optional default club
+
+MindBody:
+- `MBO_BASE` (default https://api.mindbodyonline.com/public/v6/)
+- `MBO_SITE_ID`
+- `MBO_API_KEY`
+- `MBO_APP_NAME` (User-Agent)
+- `MBO_USERNAME`, `MBO_PASSWORD` (for issuing staff tokens)
+- `MBO_STATIC_TOKEN` (bypass token issuance when set)
+
+Email/host:
+- `APP_HOST` (used in mailer URLs)
+- `SMTP_USERNAME`, `SMTP_PASSWORD` (Gmail + app password in prod)
+- `ERROR_NOTIFIER_FROM`
+- `ERROR_NOTIFIER_RECIPIENTS` (comma-separated)
+
+Jobs/ops:
+- `JOB_CONCURRENCY` (Solid Queue worker processes; default 1)
+- `DATABASE_URL` (prod)
+
+Dev mail delivery uses the `:file` adapter (see `tmp/mail`); production uses Gmail SMTP over STARTTLS.
+
+---
+
+## Testing
 
 ```bash
-# Run all specs
 bundle exec rspec
 ```
 
-Tests include:
-
-* Eligibility logic (eligible / ineligible)
-* Missing members (not_found)
-* Timeout handling (upstream_error)
-* Admin mailer notifications from controller/job failure paths
+Coverage: intake controller flow (eligibility/not-found/duplicates/errors), MindBody job success + duplicate/reactivation paths + error handling, and the `intake_attempts:cleanup` rake task.
 
 ---
 
-## 📦 Roadmap
+## Operational tips
 
-1. ✅ **ABC Financial API integration**
-2. 🚧 **MindBody API client & Solid Queue background job**
-3. 🧱 **Schema validation / contract tests**
-4. 🕵️ **Daily sandbox smoke test**
-5. 📊 **Admin dashboard for sync logs**
-
----
-
-## 🧰 Developer Notes
-
-* The project runs as an **API-only Rails app** — no frontend, but designed to receive AJAX requests from WordPress forms.
-* Each club website will submit user data to this API endpoint to validate member eligibility and trigger MindBody account creation.
-* Currently uses live ABC responses for development; will switch to recorded fixtures and schema validation later.
-
----
-
-## 📧 Production Email Setup (Gmail SMTP)
-
-1. Enable 2-Step Verification on the Gmail account you’ll send from.
-2. In Google Account → Security → App Passwords, create a new app password for “Mail” (choose “Other” if needed). Copy the 16-character password.
-3. Set environment variables in production: `SMTP_USERNAME` (Gmail address), `SMTP_PASSWORD` (the app password), `ERROR_NOTIFIER_FROM` (use the same Gmail or a permitted alias to avoid spoofing issues), `ERROR_NOTIFIER_RECIPIENTS` (comma-separated admins), and `APP_HOST`.
-4. Deploy. Rails will use Gmail over STARTTLS on port 587 per `config/environments/production.rb`.
-5. Test in production by triggering a known failure path (e.g., simulate an upstream timeout) and confirm the admin email is delivered. Remove any test triggers afterward.
-
-Development email: delivery uses the `:file` adapter, writing `.eml` files to `tmp/mail`; open them locally to review content and links.
-
-Exception serialization: `config/initializers/active_job_exception_serializer.rb` lets `deliver_later` enqueue real exceptions with Solid Queue.
+- IntakeAttempt statuses are the primary debugging surface; check `response_payload` for MindBody metadata (duplicates, contract purchase, password reset flag).
+- `MindbodyClient#call_endpoint` is handy in console for ad hoc API calls.
+- To prune history locally: `bin/rails intake_attempts:cleanup`.
+- Production uses `config/recurring.yml` to clear finished Solid Queue jobs hourly; adjust if the queue grows unexpectedly.
+- Health: `/up` for load balancers; `/api/v1/jobs` for queue state (protect in prod).
