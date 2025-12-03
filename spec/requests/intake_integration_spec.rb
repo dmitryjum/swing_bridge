@@ -45,7 +45,7 @@ RSpec.describe "API V1 Intakes Integration", type: :request do
     xit "calls Mindbody to create a client directly" do
       attempt = IntakeAttempt.create!(
         club: "1552",
-        email: "john.doe@example.com",
+        email: "john.doe@testemail.com",
         status: "enqueued",
         request_payload: {}
       )
@@ -53,9 +53,9 @@ RSpec.describe "API V1 Intakes Integration", type: :request do
       expect do
         MindbodyAddClientJob.perform_now(
           intake_attempt_id: attempt.id,
-          first_name: "John",
+          first_name: "Johnny",
           last_name: "Doe",
-          email: "john.doe@example.com",
+          email: "john.doe@testemail.com",
           extras: {
             BirthDate: "1990-01-01",
             MobilePhone: "(555) 555-5555",
@@ -70,8 +70,12 @@ RSpec.describe "API V1 Intakes Integration", type: :request do
 
       attempt.reload
       expect(attempt.status).to eq("mb_success")
-      expect(attempt.response_payload).to include("Client")
-      expect(attempt.response_payload.dig("Client", "Id")).to be_present
+      payload = attempt.response_payload || {}
+      expect(payload).to include("mindbody_password_reset_sent")
+      expect(payload).to have_key("mindbody_contract_purchase")
+      expect(
+        payload["Client"].presence || payload["mindbody_duplicate_client"].presence
+      ).to be_present
     end
   end
 end

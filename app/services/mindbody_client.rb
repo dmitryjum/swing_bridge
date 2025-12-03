@@ -188,26 +188,26 @@ class MindbodyClient
     @contracts_cache[location_id] ||= begin
       res = request(
         method: :get,
-        path: "sale/getcontracts",
+        path: "sale/contracts",
         params: { locationId: location_id },
-        error_label: "getcontracts"
+        error_label: "contracts"
       )
       Array(res.body && res.body["Contracts"])
     end
   end
 
-  def find_contract_id_by_name(name, location_id:)
+  def find_contract_by_name(name, location_id:)
     target = normalize_contract_name(name)
     list   = contracts(location_id: location_id)
 
     exact = list.find { |contract| normalize_contract_name(contract["Name"]) == target }
-    return exact["Id"] if exact
+    return exact if exact
 
     fuzzy = list.find do |contract|
       norm = normalize_contract_name(contract["Name"])
       norm.include?(target) || target.include?(norm)
     end
-    fuzzy && fuzzy["Id"]
+    fuzzy
   end
 
   def client_contracts(client_id:)
@@ -220,7 +220,13 @@ class MindbodyClient
     Array(res.body && res.body["Contracts"])
   end
 
-  def purchase_contract(client_id:, contract_id:, location_id:, send_notifications: true)
+  def purchase_contract(client_id:,
+      contract_id:,
+      location_id:,
+      send_notifications: true,
+      start_date: "",
+      credit_card_info: default_credit_card_info
+    )
     request(
       method: :post,
       path: "sale/purchasecontract",
@@ -228,7 +234,9 @@ class MindbodyClient
         ClientId: client_id,
         ContractId: contract_id,
         LocationId: location_id,
-        SendNotifications: send_notifications
+        SendNotifications: send_notifications,
+        StartDate: start_date,
+        CreditCardInfo: credit_card_info
       },
       error_label: "purchasecontract"
     ).body
@@ -241,11 +249,11 @@ class MindbodyClient
   end
 
   def request(method:, path:, params: nil, body: nil, headers: nil, error_label: nil)
-    res = @http.public_send(method, path,
-      params: params,
-      body: body,
-      headers: headers || auth_headers)
+    request_args = { headers: headers || auth_headers }
+    request_args[:params] = params unless params.nil?
+    request_args[:body]   = body unless body.nil?
 
+    res = @http.public_send(method, path, **request_args)
     unless res.success?
       label = error_label || path
       raise ApiError, "#{label} HTTP #{res.status} body=#{res.body.inspect}"
@@ -266,5 +274,19 @@ class MindbodyClient
 
   def auth_headers
     base_headers.merge("Authorization" => "Bearer #{token}")
+  end
+
+  def default_credit_card_info
+    # Mindbody requires payment info even for $0 contracts; use a safe placeholder with a future expiry.
+    {
+      CreditCardNumber: "4111111111111111",
+      ExpMonth: "12",
+      ExpYear: (Time.current.next_year.year).to_s,
+      BillingName: "John Doe",
+      BillingAddress: "123 Lake Dr",
+      BillingCity: "San Luis Obispo",
+      BillingState: "CA",
+      BillingPostalCode: "93405"
+    }
   end
 end

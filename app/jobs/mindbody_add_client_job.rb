@@ -27,7 +27,6 @@ class MindbodyAddClientJob < ApplicationJob
 
     duplicate_count = duplicate_lookup[:total_results].to_i
     duplicates = duplicate_lookup[:duplicates] || []
-
     if duplicate_count.positive? # the same client is already in MindBody
       matched_duplicate =
         duplicates.find { |dup| dup["Email"].to_s.casecmp(email).zero? } ||
@@ -39,8 +38,7 @@ class MindbodyAddClientJob < ApplicationJob
       if matched_duplicate && matched_duplicate["Id"].present?
         duplicate_client_details = mb.client_complete_info(client_id: matched_duplicate["Id"])
         duplicate_client_active = duplicate_client_details[:active]
-        duplicate_client = duplicate_client_details[:client] || duplicate_client_details
-
+        duplicate_client = duplicate_client_details[:client]
         if duplicate_client_active == false # activate inactive client
           Rails.logger.info("[MindbodyAddClientJob] Reactivating MindBody client #{matched_duplicate["Id"]}")
           update_response = mb.update_client(client_id: matched_duplicate["Id"], attrs: { Active: true })
@@ -60,19 +58,20 @@ class MindbodyAddClientJob < ApplicationJob
       has_contract = false
 
       if client_id.present?
-        target_contract_id ||= resolve_target_contract_id!(mb)
+        target_contract ||= resolve_target_contract!(mb)
+        target_contract_id = target_contract["Id"]
         client_contracts = mb.client_contracts(client_id: client_id)
-        has_contract = client_contracts.any? { |contract| contract["Id"].to_s == target_contract_id.to_s }
+        has_contract = client_contracts.any? { |contract| contract["ContractID"].to_s == target_contract_id.to_s }
 
         unless has_contract
           contract_purchase = purchase_target_contract!(
             mb: mb,
             client_id: client_id,
-            contract_id: target_contract_id
+            contract_id: target_contract_id,
+            start_date: target_contract["ClientsChargedOnSpecificDate"]
           )
           has_contract = true
         end
-
         if duplicate_client_reactivated
           mb.send_password_reset_email(first_name:, last_name:, email:)
           password_reset_sent = true
@@ -115,16 +114,16 @@ class MindbodyAddClientJob < ApplicationJob
     client_id = result.dig("Client", "Id")
     raise MindbodyClient::ApiError, "MindBody did not return a client Id after add_client" if client_id.blank?
 
-    target_contract_id ||= resolve_target_contract_id!(mb)
+    target_contract ||= resolve_target_contract!(mb)
+    target_contract_id = target_contract["Id"]
     contract_purchase = purchase_target_contract!(
       mb: mb,
       client_id: client_id,
-      contract_id: target_contract_id
+      contract_id: target_contract_id,
+      start_date: target_contract["ClientsChargedOnSpecificDate"]
     )
-
-    mb.send_password_reset_email(first_name:, last_name:, email:)
+    rest_result = mb.send_password_reset_email(first_name:, last_name:, email:)
     password_reset_sent = true
-
     Rails.logger.info(
       "[MindbodyAddClientJob] Created client #{email} " \
       "-> #{result.dig("Client", "Id") || result.inspect}"
@@ -149,19 +148,20 @@ class MindbodyAddClientJob < ApplicationJob
 
   private
 
-  def resolve_target_contract_id!(mb)
-    contract_id = mb.find_contract_id_by_name(TARGET_CONTRACT_NAME, location_id: TARGET_LOCATION_ID)
-    if contract_id.blank?
+  def resolve_target_contract!(mb)
+    contract = mb.find_contract_by_name(TARGET_CONTRACT_NAME, location_id: TARGET_LOCATION_ID)
+    if contract.blank?
       raise MindbodyClient::ApiError, "MindBody contract not found: #{TARGET_CONTRACT_NAME}"
     end
-    contract_id
+    contract
   end
 
-  def purchase_target_contract!(mb:, client_id:, contract_id:)
+  def purchase_target_contract!(mb:, client_id:, contract_id:, start_date:)
     mb.purchase_contract(
       client_id: client_id,
       contract_id: contract_id,
       location_id: TARGET_LOCATION_ID,
+      start_date: start_date,
       send_notifications: true
     )
   end
