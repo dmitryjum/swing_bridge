@@ -10,6 +10,14 @@ RSpec.describe MindbodyAddClientJob, type: :job do
       extras:     { BirthDate: "2000-01-01", "MobilePhone" => "555-1234" }
     }
   end
+  let(:contract_id) { "c-123" }
+  let(:contract_purchase_response) { { "Sale" => { "Id" => "sale-1" } } }
+  let(:target_contract) do
+    {
+      "Id" => contract_id,
+      "ClientsChargedOnSpecificDate" => "2024-01-15"
+    }
+  end
 
   let(:duplicate_response) do
     {
@@ -31,10 +39,13 @@ RSpec.describe MindbodyAddClientJob, type: :job do
     allow(mindbody_client).to receive(:duplicate_clients).and_return(duplicate_response)
     allow(mindbody_client).to receive(:client_complete_info).and_return(client_complete_info_response)
     allow(mindbody_client).to receive(:update_client).and_return({ "Client" => { "Id" => "abc", "Active" => true } })
+    allow(mindbody_client).to receive(:find_contract_by_name).and_return(target_contract)
+    allow(mindbody_client).to receive(:purchase_contract).and_return(contract_purchase_response)
+    allow(mindbody_client).to receive(:client_contracts).and_return([])
   end
 
   describe "#perform" do
-    it "ensures required fields then creates the client with normalized extras and updates attempt" do
+    it "ensures required fields, creates the client, purchases contract, sends reset, updates attempt" do
       # create an attempt that represents the enqueued job
       attempt = IntakeAttempt.create!(
         club: "1552",
@@ -59,6 +70,14 @@ RSpec.describe MindbodyAddClientJob, type: :job do
         email:      "jane@example.com",
         extras:     { BirthDate: "2000-01-01", MobilePhone: "555-1234" }
       ).and_return({ "Client" => { "Id" => "abc" } })
+      expect(mindbody_client).to receive(:find_contract_by_name).with("Swing - Membership (Gold's Member)", location_id: 1).and_return(target_contract)
+      expect(mindbody_client).to receive(:purchase_contract).with(
+        client_id: "abc",
+        contract_id: target_contract["Id"],
+        location_id: 1,
+        send_notifications: true,
+        start_date: target_contract["ClientsChargedOnSpecificDate"]
+      ).and_return(contract_purchase_response)
       expect(mindbody_client).to receive(:send_password_reset_email).with(
         first_name: "Jane",
         last_name:  "Doe",
@@ -69,7 +88,13 @@ RSpec.describe MindbodyAddClientJob, type: :job do
 
       attempt.reload
       expect(attempt.status).to eq("mb_success")
-      expect(attempt.response_payload).to eq({ "Client" => { "Id" => "abc" } })
+      expect(attempt.response_payload).to eq(
+        {
+          "Client" => { "Id" => "abc" },
+          "mindbody_contract_purchase" => contract_purchase_response,
+          "mindbody_password_reset_sent" => true
+        }
+      )
     end
 
     it "re-raises Mindbody errors so retries can occur and updates attempt status" do
@@ -111,7 +136,20 @@ RSpec.describe MindbodyAddClientJob, type: :job do
 
         expect(mindbody_client).not_to receive(:ensure_required_client_fields!)
         expect(mindbody_client).not_to receive(:add_client)
-        expect(mindbody_client).not_to receive(:send_password_reset_email)
+        expect(mindbody_client).to receive(:find_contract_by_name).with("Swing - Membership (Gold's Member)", location_id: 1).and_return(target_contract)
+        expect(mindbody_client).to receive(:client_contracts).with(client_id: "def").and_return([])
+        expect(mindbody_client).to receive(:purchase_contract).with(
+          client_id: "def",
+          contract_id: target_contract["Id"],
+          location_id: 1,
+          send_notifications: true,
+          start_date: target_contract["ClientsChargedOnSpecificDate"]
+        ).and_return(contract_purchase_response)
+        expect(mindbody_client).to receive(:send_password_reset_email).with(
+          first_name: "Jane",
+          last_name:  "Doe",
+          email:      "jane@example.com"
+        ).and_return(nil)
         expect(mindbody_client).to receive(:client_complete_info).with(client_id: "def").and_return(
           {
             client: { "Id" => "def", "Active" => false },
@@ -132,7 +170,10 @@ RSpec.describe MindbodyAddClientJob, type: :job do
           "mindbody_duplicates_metadata" => { "total_results" => 1 },
           "mindbody_duplicate_client_active" => true,
           "mindbody_duplicate_client" => { "Id" => "def", "Active" => false },
-          "mindbody_duplicate_client_reactivated" => true
+          "mindbody_duplicate_client_reactivated" => true,
+          "mindbody_client_contracts" => [],
+          "mindbody_contract_purchase" => contract_purchase_response,
+          "mindbody_password_reset_sent" => true
         )
       end
 
@@ -155,6 +196,9 @@ RSpec.describe MindbodyAddClientJob, type: :job do
 
           expect(mindbody_client).not_to receive(:ensure_required_client_fields!)
           expect(mindbody_client).not_to receive(:add_client)
+          expect(mindbody_client).to receive(:find_contract_by_name).with("Swing - Membership (Gold's Member)", location_id: 1).and_return(target_contract)
+          expect(mindbody_client).to receive(:client_contracts).with(client_id: "def").and_return([ { "ContractID" => contract_id } ])
+          expect(mindbody_client).not_to receive(:purchase_contract)
           expect(mindbody_client).not_to receive(:send_password_reset_email)
           expect(mindbody_client).to receive(:client_complete_info).with(client_id: "def").and_return(client_complete_info_response)
           expect(mindbody_client).not_to receive(:update_client)
@@ -165,7 +209,10 @@ RSpec.describe MindbodyAddClientJob, type: :job do
           expect(attempt.status).to eq("mb_success")
           expect(attempt.response_payload).to include(
             "mindbody_duplicate_client_active" => true,
-            "mindbody_duplicate_client_reactivated" => false
+            "mindbody_duplicate_client_reactivated" => false,
+            "mindbody_client_contracts" => [ { "ContractID" => contract_id } ],
+            "mindbody_contract_purchase" => nil,
+            "mindbody_password_reset_sent" => false
           )
         end
       end
