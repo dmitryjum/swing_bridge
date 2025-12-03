@@ -138,11 +138,13 @@ class MindbodyAddClientJob < ApplicationJob
   rescue MindbodyClient::AuthError, MindbodyClient::ApiError => e
     Rails.logger.error("[MindbodyAddClientJob] #{e.class}: #{e.message}")
     attempt&.update!(status: :mb_failed, error_message: e.message)
+    AdminMailer.mindbody_failure(attempt, e).deliver_later
     # Re-raise so Solid Queue’s retry/backoff can do its thing if you configure it
     raise
   rescue => e
     Rails.logger.error("[MindbodyAddClientJob] Unexpected error: #{e.class}: #{e.message}")
     attempt&.update!(status: :failed, error_message: e.message)
+    AdminMailer.mindbody_failure(attempt, e).deliver_later
     raise
   end
 

@@ -2,6 +2,7 @@ require "rails_helper"
 
 RSpec.describe MindbodyAddClientJob, type: :job do
   let(:mindbody_client) { instance_double(MindbodyClient) }
+  let(:mailer_double) { instance_double(ActionMailer::MessageDelivery, deliver_later: true) }
   let(:payload) do
     {
       first_name: "Jane",
@@ -109,6 +110,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
       error = MindbodyClient::ApiError.new("boom")
       expect(mindbody_client).to receive(:ensure_required_client_fields!).and_raise(error)
       expect(mindbody_client).not_to receive(:add_client)
+      expect(AdminMailer).to receive(:mindbody_failure).with(attempt, error).and_return(mailer_double)
 
       expect do
         described_class.perform_now(intake_attempt_id: attempt.id, **payload)
@@ -216,6 +218,28 @@ RSpec.describe MindbodyAddClientJob, type: :job do
           )
         end
       end
+    end
+
+    it "re-raises unexpected errors, updates attempt, and notifies admins" do
+      attempt = IntakeAttempt.create!(
+        club: "1552",
+        email: "jane@example.com",
+        status: "enqueued",
+        request_payload: {}
+      )
+
+      error = StandardError.new("unexpected")
+      expect(mindbody_client).to receive(:ensure_required_client_fields!)
+      expect(mindbody_client).to receive(:add_client).and_raise(error)
+      expect(AdminMailer).to receive(:mindbody_failure).with(attempt, error).and_return(mailer_double)
+
+      expect do
+        described_class.perform_now(intake_attempt_id: attempt.id, **payload)
+      end.to raise_error(StandardError, "unexpected")
+
+      attempt.reload
+      expect(attempt.status).to eq("failed")
+      expect(attempt.error_message).to eq("unexpected")
     end
   end
 end
