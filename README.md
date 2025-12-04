@@ -1,10 +1,10 @@
-# Gold's Gym Membership Bridge (ABC -> MindBody)
+# 🏋️‍♂️ Gold's Gym Membership Bridge (ABC -> MindBody)
 
 Rails API-only bridge that validates Gold's Gym members in ABC Financial and provisions/updates matching MindBody clients through a Solid Queue job. Intake requests are persisted so retries, MindBody outcomes, and admin alerts can be audited.
 
 ---
 
-## What the app does
+## 🧩 What the app does
 
 - `POST /api/v1/intakes` accepts `credentials: { club, email }` and looks up the member in ABC.
 - ABC agreement data is evaluated against upgrade thresholds (bi-weekly > 24.99 or monthly > 49). Ineligible members are returned immediately.
@@ -15,7 +15,7 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
 
 ---
 
-## Tech stack
+## ⚙️ Tech stack
 
 - Ruby 3.3.8, Rails 8.1 (API mode)
 - Postgres (primary DB + Solid Queue tables)
@@ -25,7 +25,7 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
 
 ---
 
-## Architecture & flow
+## 🚧 Architecture & flow
 
 1) **Intake** (`Api::V1::IntakesController#create`)
    - Finds or initializes an `IntakeAttempt` keyed by `club` + `email`, increments `attempts_count` on retries, and tracks request/response payloads.
@@ -56,7 +56,7 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
 
 ---
 
-## API
+## 📦 API
 
 `POST /api/v1/intakes`
 
@@ -79,7 +79,7 @@ Health check: `GET /up` (also root).
 
 ---
 
-## Setup
+## 🚀 Setup
 
 1) Prereqs: Ruby 3.3.8, Postgres, bundler.
 2) Install deps and prep DB:
@@ -105,7 +105,7 @@ Mission Control Jobs UI: http://localhost:3000/api/v1/jobs (dev).
 
 ---
 
-## Environment
+## 🔑 Environment
 
 ABC:
 - `ABC_BASE` (e.g. https://api.abcfinancial.com/rest/)
@@ -135,7 +135,7 @@ Dev mail delivery uses the `:file` adapter (see `tmp/mail`); production uses Gma
 
 ---
 
-## Testing
+## 🧪 Testing
 
 ```bash
 bundle exec rspec
@@ -145,7 +145,7 @@ Coverage: intake controller flow (eligibility/not-found/duplicates/errors), Mind
 
 ---
 
-## Operational tips
+## 🧰 Operational tips
 
 - IntakeAttempt statuses are the primary debugging surface; check `response_payload` for MindBody metadata (duplicates, contract purchase, password reset flag).
 - `MindbodyClient#call_endpoint` is handy in console for ad hoc API calls.
