@@ -164,7 +164,7 @@ class MindbodyAddClientJob < ApplicationJob
       contract_id: contract_id,
       location_id: TARGET_LOCATION_ID,
       start_date: start_date,
-      send_notifications: true
+      send_notifications: false
     )
   end
 end

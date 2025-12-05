@@ -71,7 +71,7 @@
       }
       .gg-verification-status.gg-status-info {
         background: #e6f3ff;
-        border-left: 4px solid #007bff;
+        border-left: 4px solid #e04b4b;
       }
       .gg-verification-status.gg-status-error {
         background: #ffe6e6;
@@ -177,7 +177,7 @@
         } else if (apiStatus === 'mb_client_created') {
           setStatus(statusBox, 'success', 'You’re already set up with MindBody. We will reactivate your account unless it is already active.');
         } else if (apiStatus === 'ineligible' || apiStatus === 'not_found') {
-          setStatus(statusBox, 'info', 'Thanks! Based on our records, you are not eligible for this upgrade.');
+          setStatus(statusBox, 'info', 'Based on our records, you are not eligible for this upgrade.');
           window.location.href = INELIGIBLE_REDIRECT_URL;
         } else if (apiStatus === 'upstream_error') {
           setStatus(statusBox, 'error', 'Our membership system is temporarily unavailable. Please try again later.');

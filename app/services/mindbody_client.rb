@@ -223,7 +223,7 @@ class MindbodyClient
   def purchase_contract(client_id:,
       contract_id:,
       location_id:,
-      send_notifications: true,
+      send_notifications: false,
       start_date: "",
       credit_card_info: default_credit_card_info
     )

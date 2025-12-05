@@ -42,7 +42,7 @@ RSpec.describe "API V1 Intakes Integration", type: :request do
   end
 
   context "when stubbing the ABC client" do
-    xit "calls Mindbody to create a client directly" do
+    it "calls Mindbody to create a client directly" do
       attempt = IntakeAttempt.create!(
         club: "1552",
         email: "john.doe@testemail.com",
@@ -55,7 +55,7 @@ RSpec.describe "API V1 Intakes Integration", type: :request do
           intake_attempt_id: attempt.id,
           first_name: "Johnny",
           last_name: "Doe",
-          email: "john.doe@testemail.com",
+          email: "test35@testemail.com",
           extras: {
             BirthDate: "1990-01-01",
             MobilePhone: "(555) 555-5555",
