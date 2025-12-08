@@ -39,7 +39,7 @@ gem "rack-cors"
 gem "faraday", "~> 2.14"
 gem "faraday-retry", "~> 2.3"
 gem "oj", "~> 3.16"
-gem "dotenv-rails", "~> 3.1"
+gem "dotenv-rails", "~> 3.2"
 gem "mission_control-jobs"
 
 group :development, :test do
