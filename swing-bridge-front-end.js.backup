@@ -4,9 +4,7 @@
   // Toggle this to switch between fake API and real Rails call
   // const USE_MOCK = false;
 
-  // Your Rails dev endpoint
-  // NOTE: if your route is actually /api/v1/intakes (plural), change it here.
-  const INTAKES_API_URL = 'https://swing-bridge-api.onrender.com/api/v1/intakes';
+  const INTAKES_API_URL =
 
   // Where to send users after eligibility check
   // For now just use test URLs or even '#'; you can swap later.
