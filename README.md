@@ -7,7 +7,7 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
 ## 🧩 What the app does
 
 - `POST /api/v1/intakes` accepts `credentials: { club, email }` and looks up the member in ABC.
-- ABC agreement data is evaluated against upgrade thresholds (bi-weekly > 24.99 or monthly > 49). Ineligible members are returned immediately.
+- ABC agreement data is evaluated against upgrade thresholds (bi-weekly > `ABC_BIWEEKLY_UPGRADE_THRESHOLD` or monthly > `ABC_MONTHLY_UPGRADE_THRESHOLD`). Ineligible members are returned immediately.
 - Eligible requests enqueue `MindbodyAddClientJob`, which creates or reactivates a MindBody client, purchases the target contract, and sends a password reset email.
 - All attempts are stored in `IntakeAttempt` with statuses (`pending`, `found`, `eligible`, `enqueued`, `mb_success`, `mb_failed`, `ineligible`, `member_missing`, `upstream_error`, `failed`) so the UI or admin emails can reflect history.
 - AdminMailer notifies on ABC failures (controller) and MindBody failures (job); production uses SMTP, development writes `.eml` files to `tmp/mail`.
@@ -112,6 +112,8 @@ ABC:
 - `ABC_APP_ID`
 - `ABC_APP_KEY`
 - `ABC_CLUB` optional default club
+- `ABC_BIWEEKLY_UPGRADE_THRESHOLD` (default 24.98)
+- `ABC_MONTHLY_UPGRADE_THRESHOLD` (default 49.0)
 
 MindBody:
 - `MBO_BASE` (default https://api.mindbodyonline.com/public/v6/)
