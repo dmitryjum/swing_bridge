@@ -56,8 +56,18 @@ class AbcClient
     freq   = @member_agreement["paymentFrequency"].to_s.downcase
     amount = @member_agreement["nextDueAmount"].to_f
 
-    (freq == "bi-weekly" && amount > 24.99) ||
-      (freq == "monthly" && amount > 49.0)
+    (freq == "bi-weekly" && amount > biweekly_threshold) ||
+      (freq == "monthly" && amount > monthly_threshold)
+  end
+
+  private
+
+  def biweekly_threshold
+    ENV.fetch("ABC_BIWEEKLY_UPGRADE_THRESHOLD", "24.98").to_f
+  end
+
+  def monthly_threshold
+    ENV.fetch("ABC_MONTHLY_UPGRADE_THRESHOLD", "49.0").to_f
   end
 end
 
