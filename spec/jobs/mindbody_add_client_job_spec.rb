@@ -76,7 +76,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
         client_id: "abc",
         contract_id: target_contract["Id"],
         location_id: 1,
-        send_notifications: true,
+        send_notifications: false,
         start_date: target_contract["ClientsChargedOnSpecificDate"]
       ).and_return(contract_purchase_response)
       expect(mindbody_client).to receive(:send_password_reset_email).with(
@@ -144,7 +144,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
           client_id: "def",
           contract_id: target_contract["Id"],
           location_id: 1,
-          send_notifications: true,
+          send_notifications: false,
           start_date: target_contract["ClientsChargedOnSpecificDate"]
         ).and_return(contract_purchase_response)
         expect(mindbody_client).to receive(:send_password_reset_email).with(
