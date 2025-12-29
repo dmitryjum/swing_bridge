@@ -93,6 +93,62 @@ RSpec.describe "API V1 Intakes", type: :request do
     )
   end
 
+  it "uses primaryPhone for Mindbody MobilePhone when present" do
+    phone = "(555) 555-1234"
+
+    stub_request(:get, personals_url)
+      .with(query: hash_including({ "email" => email }))
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: {
+          status: { nextPage: 0 },
+          members: [
+            {
+              "memberId" => "abc-123",
+              "personal" => {
+                "firstName"    => "Mitch",
+                "lastName"     => "Conner",
+                "email"        => email,
+                "primaryPhone" => phone,
+                "mobilePhone"  => nil
+              }
+            }
+          ]
+        }.to_json
+      )
+
+    stub_request(:get, member_url("abc-123"))
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: {
+          "members" => [
+            {
+              "memberId" => "abc-123",
+              "agreement" => {
+                "paymentFrequency" => "Monthly",
+                "nextDueAmount"    => 55.00
+              }
+            }
+          ]
+        }.to_json
+      )
+
+    post "/api/v1/intakes", params: { credentials: { club:, email: } }
+
+    attempt = IntakeAttempt.find_by(email: email, club: club)
+    expect(MindbodyAddClientJob).to have_been_enqueued.with(
+      hash_including(
+        intake_attempt_id: attempt.id,
+        first_name: "Mitch",
+        last_name:  "Conner",
+        email:      email,
+        extras:     hash_including(MobilePhone: phone)
+      )
+    )
+  end
+
   it "returns mb_client_created when Mindbody client already exists" do
     IntakeAttempt.create!(
       club: club,

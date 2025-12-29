@@ -80,7 +80,7 @@ class Api::V1::IntakesController < ApplicationController
 
     extras = {}
     extras[:BirthDate]    = p["birthDate"]    if p["birthDate"].present?
-    extras[:MobilePhone]  = p["mobilePhone"]  if p["mobilePhone"].present?
+    extras[:MobilePhone]  = p["primaryPhone"]  if p["primaryPhone"].present?
     extras[:AddressLine1] = p["addressLine1"] if p["addressLine1"].present?
     extras[:AddressLine2] = p["addressLine2"] if p["addressLine2"].present?
     extras[:City]         = p["city"]         if p["city"].present?
