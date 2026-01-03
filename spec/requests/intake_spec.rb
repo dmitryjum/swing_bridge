@@ -93,8 +93,8 @@ RSpec.describe "API V1 Intakes", type: :request do
     )
   end
 
-  it "uses primaryPhone for Mindbody MobilePhone when present" do
-    phone = "(555) 555-1234"
+  it "uses provided phone for Mindbody MobilePhone" do
+    phone = "(555) 555-5678"
 
     stub_request(:get, personals_url)
       .with(query: hash_including({ "email" => email }))
@@ -110,7 +110,7 @@ RSpec.describe "API V1 Intakes", type: :request do
                 "firstName"    => "Mitch",
                 "lastName"     => "Conner",
                 "email"        => email,
-                "primaryPhone" => phone,
+                "primaryPhone" => "(555) 555-1234",
                 "mobilePhone"  => nil
               }
             }
@@ -135,7 +135,7 @@ RSpec.describe "API V1 Intakes", type: :request do
         }.to_json
       )
 
-    post "/api/v1/intakes", params: { credentials: { club:, email: } }
+    post "/api/v1/intakes", params: { credentials: { club:, email:, phone: } }
 
     attempt = IntakeAttempt.find_by(email: email, club: club)
     expect(MindbodyAddClientJob).to have_been_enqueued.with(

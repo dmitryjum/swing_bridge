@@ -13,6 +13,7 @@
 
   // CF7 field names from your screenshot
   const EMAIL_FIELD_NAME = 'your-email';
+  const PHONE_FIELD_NAME = 'your-tel';
   const CLUB_FIELD_NAME  = 'select-gym';
 
   function normalizeClub(club) {
@@ -97,13 +98,14 @@
     });
 
     const email = inputs[EMAIL_FIELD_NAME];
-    const gymLabel  = inputs[CLUB_FIELD_NAME];
+    const gymLabel = inputs[CLUB_FIELD_NAME];
     const club = normalizeClub(gymLabel);
+    const phone = inputs[PHONE_FIELD_NAME];
 
-    console.log('[GG Intakes] extracted email/club:', { email, club });
+    console.log('[GG Intakes] extracted email/club/phone:', { email, club, phone });
 
-    if (!email || !club) {
-      setStatus(statusBox, 'error', 'Missing email or gym location. Please try again.');
+    if (!email || !club || !phone) {
+      setStatus(statusBox, 'error', 'Missing email, phone, or gym location. Please try again.');
       return;
     }
 
@@ -135,7 +137,8 @@
     const payload = {
       credentials: {
         email: email,
-        club: club
+        club: club,
+        phone: phone
       }
     };
 
