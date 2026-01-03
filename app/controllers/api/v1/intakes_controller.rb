@@ -6,6 +6,7 @@ class Api::V1::IntakesController < ApplicationController
   def create
     email = credential_params[:email]
     club = credential_params[:club]
+    phone = credential_params[:phone]
 
     attempt = IntakeAttempt.find_or_initialize_by(email: email, club: club)
     client = AbcClient.new(club: credential_params[:club])
@@ -31,7 +32,7 @@ class Api::V1::IntakesController < ApplicationController
     attempt.update!(status: :found, response_payload: member_summary) unless mb_client_created
 
     if client.upgradable?
-      extras = build_mindbody_extras(client.requested_personal)
+      extras = build_mindbody_extras(client.requested_personal, phone)
       attempt.update!(status: :eligible, response_payload: member_payload) unless mb_client_created
       MindbodyAddClientJob.perform_later(
         intake_attempt_id: attempt.id,
@@ -71,16 +72,16 @@ class Api::V1::IntakesController < ApplicationController
   end
 
   def credential_params
-    params.require(:credentials).permit(:club, :email)
+    params.require(:credentials).permit(:club, :email, :phone)
   end
 
-  def build_mindbody_extras(personal)
+  def build_mindbody_extras(personal, phone)
     # defensive: personal may be nil
     p = personal || {}
 
     extras = {}
     extras[:BirthDate]    = p["birthDate"]    if p["birthDate"].present?
-    extras[:MobilePhone]  = p["primaryPhone"]  if p["primaryPhone"].present?
+    extras[:MobilePhone]  = phone             if phone.present?
     extras[:AddressLine1] = p["addressLine1"] if p["addressLine1"].present?
     extras[:AddressLine2] = p["addressLine2"] if p["addressLine2"].present?
     extras[:City]         = p["city"]         if p["city"].present?
