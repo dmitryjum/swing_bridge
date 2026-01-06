@@ -13,6 +13,7 @@
 # Ignore all logfiles and tempfiles.
 /log/*
 /tmp/*
+/AGENTS.md
 !/log/.keep
 !/tmp/.keep
 
@@ -31,4 +32,3 @@
 # Ignore key files for decrypting credentials and more.
 /config/*.key
 .env
-

@@ -12,6 +12,8 @@ RSpec.describe "API V1 Intakes", type: :request do
   before do
     clear_enqueued_jobs
     WebMock.disable_net_connect!(allow_localhost: true)
+    Rack::Attack.cache.store = ActiveSupport::Cache::MemoryStore.new
+    Rack::Attack.cache.store.clear
 
     allow(ENV).to receive(:fetch).and_call_original
     allow(ENV).to receive(:fetch).with("ABC_BASE", anything).and_return(base)
@@ -313,6 +315,62 @@ RSpec.describe "API V1 Intakes", type: :request do
 
     attempt = IntakeAttempt.find_by(email: email, club: club)
     expect(attempt.status).to eq("ineligible")
+  end
+
+  it "rate limits repeated intake attempts" do
+    Rack::Attack.cache.store.clear
+
+    stub_request(:get, personals_url)
+      .with(query: hash_including({ "email" => /@example\.com\z/ }))
+      .to_return do |request|
+        params = Rack::Utils.parse_nested_query(request.uri.query)
+        current_email = params["email"]
+        {
+          status: 200,
+          headers: { "Content-Type" => "application/json" },
+          body: {
+            status: { nextPage: 0 },
+            members: [
+              {
+                "memberId" => "abc-123",
+                "personal" => {
+                  "firstName" => "Mitch",
+                  "lastName"  => "Conner",
+                  "email"     => current_email
+                }
+              }
+            ]
+          }.to_json
+        }
+      end
+
+    stub_request(:get, member_url("abc-123"))
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: {
+          "members" => [
+            {
+              "memberId" => "abc-123",
+              "agreement" => {
+                "paymentFrequency" => "Monthly",
+                "nextDueAmount"    => 55.00
+              }
+            }
+          ]
+        }.to_json
+      )
+
+    emails = (1..INTAKES_IP_LIMIT).map { |i| "mitch+#{i}@example.com" }
+    emails.each do |current_email|
+      post "/api/v1/intakes", params: { credentials: { club:, email: current_email } }
+      expect(response).to have_http_status(:ok)
+    end
+
+    post "/api/v1/intakes", params: { credentials: { club:, email: "mitch+overflow@example.com" } }
+    expect(response).to have_http_status(:too_many_requests)
+    json = JSON.parse(response.body)
+    expect(json["status"]).to eq("rate_limited")
   end
 
   it "returns not_found when personals empty" do

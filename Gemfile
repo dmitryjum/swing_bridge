@@ -40,6 +40,7 @@ gem "faraday", "~> 2.14"
 gem "faraday-retry", "~> 2.4"
 gem "oj", "~> 3.16"
 gem "dotenv-rails", "~> 3.2"
+gem "rack-attack", "~> 6.7"
 gem "mission_control-jobs"
 
 group :development, :test do
