@@ -57,10 +57,25 @@ class AbcClient
     amount = @member_agreement["nextDueAmount"].to_f
 
     (freq == "bi-weekly" && amount > biweekly_threshold) ||
-      (freq == "monthly" && amount > monthly_threshold)
+      (freq == "monthly" && amount > monthly_threshold) ||
+      (paid_in_full? && down_payment_amount > paid_in_full_threshold)
   end
 
   private
+
+  def paid_in_full?
+    membership_type = @member_agreement["membershipType"].to_s
+    membership_code = @member_agreement["membershipTypeAbcCode"].to_s
+    payment_plan    = @member_agreement["paymentPlan"].to_s
+
+    membership_type.match?(/pif/i) ||
+      membership_code.match?(/pif/i) ||
+      payment_plan.match?(/paid in full/i)
+  end
+
+  def down_payment_amount
+    @member_agreement["downPayment"].to_f
+  end
 
   def biweekly_threshold
     ENV.fetch("ABC_BIWEEKLY_UPGRADE_THRESHOLD", "24.98").to_f
@@ -68,6 +83,10 @@ class AbcClient
 
   def monthly_threshold
     ENV.fetch("ABC_MONTHLY_UPGRADE_THRESHOLD", "49.0").to_f
+  end
+
+  def paid_in_full_threshold
+    ENV.fetch("ABC_PIF_UPGRADE_THRESHOLD", "688.0").to_f
   end
 end
 

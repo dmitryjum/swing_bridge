@@ -93,6 +93,60 @@ RSpec.describe "API V1 Intakes", type: :request do
     )
   end
 
+  it "returns eligible when agreement is paid in full and down payment meets threshold" do
+    allow(ENV).to receive(:fetch).with("ABC_PIF_UPGRADE_THRESHOLD", anything).and_return("688.0")
+
+    stub_request(:get, personals_url)
+      .with(query: hash_including({ "email" => email }))
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: {
+          status: { nextPage: 0 },
+          members: [
+            {
+              "memberId" => "abc-123",
+              "personal" => {
+                "firstName" => "Mitch",
+                "lastName"  => "Conner",
+                "email"     => email
+              }
+            }
+          ]
+        }.to_json
+      )
+
+    stub_request(:get, member_url("abc-123"))
+      .to_return(
+        status: 200,
+        headers: { "Content-Type" => "application/json" },
+        body: {
+          "members" => [
+            {
+              "memberId" => "abc-123",
+              "agreement" => {
+                "paymentPlan"          => "Silver Paid In Full Web - 14 month term",
+                "membershipType"       => "Silver PIF",
+                "membershipTypeAbcCode" => "SPIF",
+                "term"                 => "Cash",
+                "downPayment"          => "693.00",
+                "nextDueAmount"        => "0.00"
+              }
+            }
+          ]
+        }.to_json
+      )
+
+    post "/api/v1/intakes", params: { credentials: { club:, email: } }
+
+    expect(response).to have_http_status(:ok)
+    json = JSON.parse(response.body)
+    expect(json["status"]).to eq("eligible")
+
+    attempt = IntakeAttempt.find_by(email: email, club: club)
+    expect(attempt.status).to eq("enqueued")
+  end
+
   it "uses provided phone for Mindbody MobilePhone" do
     phone = "(555) 555-5678"
 
