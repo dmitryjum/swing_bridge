@@ -1,9 +1,20 @@
 # app/jobs/mindbody_add_client_job.rb
 class MindbodyAddClientJob < ApplicationJob
   queue_as :default
+  RETRYABLE_ERRORS = [ Faraday::TimeoutError, Faraday::ConnectionFailed ].freeze
 
   TARGET_CONTRACT_NAME = "Swing - Membership (Gold's Member)".freeze
   TARGET_LOCATION_ID = 1
+
+  retry_on(*RETRYABLE_ERRORS, wait: ->(executions) { (5 * (2 ** (executions - 1))).seconds }, attempts: 3) do |job, error|
+    args = job.arguments.first.is_a?(Hash) ? job.arguments.first : {}
+    attempt_id = args[:intake_attempt_id] || args["intake_attempt_id"]
+    attempt = IntakeAttempt.find_by(id: attempt_id) if attempt_id
+
+    Rails.logger.error("[MindbodyAddClientJob] #{error.class}: #{error.message}")
+    attempt&.update!(status: :mb_failed, error_message: error.message)
+    AdminMailer.mindbody_failure(attempt, error).deliver_later
+  end
 
   # All args must be simple JSON-serializable types
   def perform(intake_attempt_id: nil, first_name:, last_name:, email:, extras: {})
@@ -142,6 +153,10 @@ class MindbodyAddClientJob < ApplicationJob
     # Re-raise so Solid Queue’s retry/backoff can do its thing if you configure it
     raise
   rescue => e
+    if RETRYABLE_ERRORS.any? { |klass| e.is_a?(klass) }
+      Rails.logger.warn("[MindbodyAddClientJob] Transient error: #{e.class}: #{e.message}")
+      raise
+    end
     Rails.logger.error("[MindbodyAddClientJob] Unexpected error: #{e.class}: #{e.message}")
     attempt&.update!(status: :failed, error_message: e.message)
     AdminMailer.mindbody_failure(attempt, e).deliver_later

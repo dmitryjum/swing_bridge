@@ -1,6 +1,8 @@
 class MindbodyClient
   class AuthError < StandardError; end
   class ApiError  < StandardError; end
+  GET_RETRY_ATTEMPTS = 2
+  GET_RETRY_BASE_SLEEP = 0.5
 
   def initialize(
     base:          ENV.fetch("MBO_BASE", "https://api.mindbodyonline.com/public/v6/"),
@@ -15,7 +17,7 @@ class MindbodyClient
     @app_name = app_name
     @username = username
     @password = password
-    @http = HttpClient.new(base_url: base) # you already have this class
+    @http = HttpClient.new(base_url: base, timeout: 60, open_timeout: 10) # you already have this class
   end
 
   def token
@@ -253,7 +255,17 @@ class MindbodyClient
     request_args[:params] = params unless params.nil?
     request_args[:body]   = body unless body.nil?
 
-    res = @http.public_send(method, path, **request_args)
+    retries = 0
+    begin
+      res = @http.public_send(method, path, **request_args)
+    rescue Faraday::TimeoutError, Faraday::ConnectionFailed
+      if method == :get && retries < GET_RETRY_ATTEMPTS
+        retries += 1
+        sleep(GET_RETRY_BASE_SLEEP * (2 ** (retries - 1)))
+        retry
+      end
+      raise
+    end
     unless res.success?
       label = error_label || path
       raise ApiError, "#{label} HTTP #{res.status} body=#{res.body.inspect}"

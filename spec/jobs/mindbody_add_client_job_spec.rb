@@ -120,6 +120,27 @@ RSpec.describe MindbodyAddClientJob, type: :job do
       expect(attempt.status).to eq("mb_failed")
       expect(attempt.error_message).to eq("boom")
     end
+
+    it "does not mark attempt failed on transient timeouts" do
+      attempt = IntakeAttempt.create!(
+        club: "1552",
+        email: "jane@example.com",
+        status: "enqueued",
+        request_payload: {}
+      )
+
+      error = Faraday::TimeoutError.new("timeout")
+      allow(mindbody_client).to receive(:ensure_required_client_fields!).and_raise(error)
+      expect(AdminMailer).not_to receive(:mindbody_failure)
+
+      begin
+        described_class.perform_now(intake_attempt_id: attempt.id, **payload)
+      rescue StandardError
+      end
+
+      attempt.reload
+      expect(attempt.status).to eq("enqueued")
+    end
     context "when Mindbody returns duplicates" do
       let(:duplicate_response) do
         {
