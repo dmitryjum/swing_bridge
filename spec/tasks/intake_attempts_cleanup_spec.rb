@@ -10,12 +10,12 @@ RSpec.describe "intake_attempts:cleanup rake task" do
     Rake::Task["intake_attempts:cleanup"].reenable
   end
 
-  it "deletes intake attempts older than six months and logs the result" do
+  it "deletes intake attempts older than three months and logs the result" do
     old_attempt = IntakeAttempt.create!(
       club: "club-1",
       email: "old@example.com",
-      created_at: 7.months.ago,
-      updated_at: 7.months.ago
+      created_at: 4.months.ago,
+      updated_at: 4.months.ago
     )
 
     recent_attempt = IntakeAttempt.create!(
