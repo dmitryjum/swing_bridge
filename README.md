@@ -7,11 +7,12 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
 ## 🧩 What the app does
 
 - `POST /api/v1/intakes` accepts `credentials: { club, email }` and looks up the member in ABC.
-- ABC agreement data is evaluated against upgrade thresholds (bi-weekly > `ABC_BIWEEKLY_UPGRADE_THRESHOLD` or monthly > `ABC_MONTHLY_UPGRADE_THRESHOLD`). Ineligible members are returned immediately.
+- ABC agreement data is evaluated against upgrade thresholds (bi-weekly > `ABC_BIWEEKLY_UPGRADE_THRESHOLD` or monthly > `ABC_MONTHLY_UPGRADE_THRESHOLD`), plus paid-in-full eligibility via PIF markers or `downPayment > ABC_PIF_UPGRADE_THRESHOLD`. Ineligible members are returned immediately.
 - Eligible requests enqueue `MindbodyAddClientJob`, which creates or reactivates a MindBody client, purchases the target contract, and sends a password reset email.
 - All attempts are stored in `IntakeAttempt` with statuses (`pending`, `found`, `eligible`, `enqueued`, `mb_success`, `mb_failed`, `ineligible`, `member_missing`, `upstream_error`, `failed`) so the UI or admin emails can reflect history.
 - AdminMailer notifies on ABC failures (controller) and MindBody failures (job); production uses SMTP, development writes `.eml` files to `tmp/mail`.
 - Mission Control Jobs UI is mounted at `/api/v1/jobs` for monitoring Solid Queue (auth/configure upstream if exposing).
+- `POST /api/v1/intakes` is rate limited per IP and per email with JSON 429 responses via Rack::Attack.
 
 ---
 
@@ -20,6 +21,7 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
 - Ruby 3.3.8, Rails 8.1 (API mode)
 - Postgres (primary DB + Solid Queue tables)
 - Solid Queue + mission_control-jobs for job execution/inspection
+- Rack::Attack (rate limiting)
 - Faraday (+ faraday-retry), Oj
 - RSpec, WebMock, FactoryBot
 
@@ -44,6 +46,7 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
    - Handles bearer token issuance via `usertoken/issue` (or uses `MBO_STATIC_TOKEN` when set).
    - Provides helpers used by the job: `duplicate_clients`, `client_complete_info`, `add_client`, `update_client`, `client_contracts`, `find_contract_by_name`, `purchase_contract`, `send_password_reset_email`, plus `call_endpoint` for console debugging.
    - Uses a safe placeholder credit card when MindBody requires payment info for $0 contracts.
+   - Applies longer timeouts and retry/backoff for GET calls to reduce transient failures.
 
 4) **Data model**
    - `IntakeAttempt` table (unique on `club` + `email`) captures request/response payloads, attempts_count, status, and error_message for auditing and idempotency.
@@ -74,6 +77,7 @@ Responses:
 - `not_found` (no ABC match)
 - `upstream_error` (ABC network issue)
 - `error` (unexpected server error)
+- `rate_limited` (HTTP 429 JSON response)
 
 Health check: `GET /up` (also root).
 
@@ -114,6 +118,7 @@ ABC:
 - `ABC_CLUB` optional default club
 - `ABC_BIWEEKLY_UPGRADE_THRESHOLD` (default 24.98)
 - `ABC_MONTHLY_UPGRADE_THRESHOLD` (default 49.0)
+- `ABC_PIF_UPGRADE_THRESHOLD` (default 688.0)
 
 MindBody:
 - `MBO_BASE` (default https://api.mindbodyonline.com/public/v6/)
@@ -154,3 +159,4 @@ Coverage: intake controller flow (eligibility/not-found/duplicates/errors), Mind
 - To prune history locally: `bin/rails intake_attempts:cleanup`.
 - Production uses `config/recurring.yml` to clear finished Solid Queue jobs hourly; adjust if the queue grows unexpectedly.
 - Health: `/up` for load balancers; `/api/v1/jobs` for queue state (protect in prod).
+- Rack::Attack uses Solid Cache in production; ensure `solid_cache_entries` is migrated.
