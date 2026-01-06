@@ -8,6 +8,8 @@ class HttpClient
       f.response :json, content_type: /\bjson$/
       f.adapter Faraday.default_adapter
     end
+    @conn.options.timeout = timeout
+    @conn.options.open_timeout = open_timeout
   end
 
   def get(path, params: {}, headers: {})
