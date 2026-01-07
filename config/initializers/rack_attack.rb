@@ -1,6 +1,20 @@
 require "rack/attack"
 
-Rack::Attack.cache.store = Rails.cache
+def rack_attack_cache_store
+  store = Rails.cache
+  return store unless defined?(SolidCache::Store) && store.is_a?(SolidCache::Store)
+
+  begin
+    return store if defined?(SolidCache::Entry) && SolidCache::Entry.table_exists?
+  rescue StandardError => e
+    Rails.logger.warn("[Rack::Attack] solid cache unavailable: #{e.class}: #{e.message}")
+  end
+
+  Rails.logger.warn("[Rack::Attack] solid_cache_entries missing; using MemoryStore")
+  ActiveSupport::Cache::MemoryStore.new
+end
+
+Rack::Attack.cache.store = rack_attack_cache_store
 Rails.logger.info("[Rack::Attack] cache store: #{Rack::Attack.cache.store.class}") unless Rails.env.test?
 
 INTAKES_IP_LIMIT = 30

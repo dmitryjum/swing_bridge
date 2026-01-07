@@ -12,7 +12,7 @@ RSpec.describe "API V1 Intakes", type: :request do
   before do
     clear_enqueued_jobs
     WebMock.disable_net_connect!(allow_localhost: true)
-    Rack::Attack.cache.store = ActiveSupport::Cache::MemoryStore.new
+    Rack::Attack.cache.store = Rails.cache
     Rack::Attack.cache.store.clear
 
     allow(ENV).to receive(:fetch).and_call_original
