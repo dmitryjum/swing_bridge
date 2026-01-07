@@ -8,8 +8,8 @@
 
   // Where to send users after eligibility check
   // For now just use test URLs or even '#'; you can swap later.
-  const ELIGIBLE_REDIRECT_URL   = 'https://swingmiddletown.com';
-  const INELIGIBLE_REDIRECT_URL = 'https://swingmiddletown.com/founding-rate/';
+  const ELIGIBLE_REDIRECT_URL   = 'https://swingmiddletown.com/eligible';
+  const INELIGIBLE_REDIRECT_URL = 'https://swingmiddletown.com/not-eligible/';
 
   // CF7 field names from your screenshot
   const EMAIL_FIELD_NAME = 'your-email';
