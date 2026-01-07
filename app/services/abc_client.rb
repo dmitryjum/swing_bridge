@@ -89,4 +89,3 @@ class AbcClient
     ENV.fetch("ABC_PIF_UPGRADE_THRESHOLD", "688.0").to_f
   end
 end
-

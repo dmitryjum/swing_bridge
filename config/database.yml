@@ -14,10 +14,14 @@ default: &default
 development:
   primary:
     <<: *default
+  cache:
+    <<: *default
+    database: swing_bridge
+    migrations_paths: db/migrate/cache
   queue:
     <<: *default
     database: swing_bridge
-    migrations_paths: db/queue_migrate
+    migrations_paths: db/migrate/queue
 
 # Warning: The database defined as "test" will be erased and
 # re-generated from your development database when you run "rake".
@@ -26,20 +30,28 @@ test:
   primary:
     <<: *default
     database: swing_bridge_test
+  cache:
+    <<: *default
+    database: swing_bridge_test
+    migrations_paths: db/migrate/cache
   queue:
     <<: *default
     database: swing_bridge_test
-    migrations_paths: db/queue_migrate
+    migrations_paths: db/migrate/queue
 
 production:
   primary:
     <<: *default
     url: <%= ENV["DATABASE_URL"] %>
+  cache:
+    <<: *default
+    url: <%= ENV["DATABASE_URL"] %>
+    migrations_paths: db/migrate/cache
   queue:
     <<: *default
     # Use SAME Postgres instance, but Solid Queue uses its own schema
     url: <%= ENV["DATABASE_URL"] %>
-    migrations_paths: db/queue_migrate
+    migrations_paths: db/migrate/queue
 
 
 # Store production database in the storage/ directory, which by default
@@ -55,7 +67,7 @@ production:
 #   queue:
 #     <<: *default
 #     database: storage/production_queue.sqlite3
-#     migrations_paths: db/queue_migrate
+#     migrations_paths: db/migrate/queue
 #   cable:
 #     <<: *default
 #     database: storage/production_cable.sqlite3
