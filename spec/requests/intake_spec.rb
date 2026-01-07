@@ -7,6 +7,7 @@ RSpec.describe "API V1 Intakes", type: :request do
   let(:base)  { "https://api.abcfinancial.com/rest/" }
   let(:club)  { "1552" }
   let(:email) { "mitch@example.com" }
+  let(:phone) { "(555) 555-1234" }
   let(:name)  { "Mitch Conner" }
 
   before do
@@ -73,7 +74,7 @@ RSpec.describe "API V1 Intakes", type: :request do
         }.to_json
       )
 
-    post "/api/v1/intakes", params: { credentials: { club:, email: } }
+    post "/api/v1/intakes", params: { credentials: { club:, email:, phone: } }
 
     expect(response).to have_http_status(:ok)
     json = JSON.parse(response.body)
@@ -90,9 +91,18 @@ RSpec.describe "API V1 Intakes", type: :request do
         first_name: "Mitch",
         last_name:  "Conner",
         email:      email,
-        extras:     {}
+        extras:     hash_including(MobilePhone: phone)
       )
     )
+  end
+
+  it "returns bad_request when phone is missing" do
+    post "/api/v1/intakes", params: { credentials: { club:, email: } }
+
+    expect(response).to have_http_status(:bad_request)
+    json = JSON.parse(response.body)
+    expect(json["status"]).to eq("bad_request")
+    expect(json["error"]).to include("Missing required credentials: phone")
   end
 
   it "returns eligible when agreement is paid in full and down payment meets threshold" do
@@ -139,7 +149,7 @@ RSpec.describe "API V1 Intakes", type: :request do
         }.to_json
       )
 
-    post "/api/v1/intakes", params: { credentials: { club:, email: } }
+    post "/api/v1/intakes", params: { credentials: { club:, email:, phone: } }
 
     expect(response).to have_http_status(:ok)
     json = JSON.parse(response.body)
@@ -250,7 +260,7 @@ RSpec.describe "API V1 Intakes", type: :request do
         }.to_json
       )
 
-    post "/api/v1/intakes", params: { credentials: { club:, email: } }
+    post "/api/v1/intakes", params: { credentials: { club:, email:, phone: } }
 
     expect(response).to have_http_status(:ok)
     json = JSON.parse(response.body)
@@ -266,7 +276,7 @@ RSpec.describe "API V1 Intakes", type: :request do
         first_name: "Mitch",
         last_name:  "Conner",
         email:      email,
-        extras:     {}
+        extras:     hash_including(MobilePhone: phone)
       )
     )
   end
@@ -309,7 +319,7 @@ RSpec.describe "API V1 Intakes", type: :request do
         }.to_json
       )
 
-    post "/api/v1/intakes", params: { credentials: { club:, email: } }
+    post "/api/v1/intakes", params: { credentials: { club:, email:, phone: } }
     json = JSON.parse(response.body)
     expect(json["status"]).to eq("ineligible")
 
@@ -363,11 +373,11 @@ RSpec.describe "API V1 Intakes", type: :request do
 
     emails = (1..INTAKES_IP_LIMIT).map { |i| "mitch+#{i}@example.com" }
     emails.each do |current_email|
-      post "/api/v1/intakes", params: { credentials: { club:, email: current_email } }
+      post "/api/v1/intakes", params: { credentials: { club:, email: current_email, phone: } }
       expect(response).to have_http_status(:ok)
     end
 
-    post "/api/v1/intakes", params: { credentials: { club:, email: "mitch+overflow@example.com" } }
+    post "/api/v1/intakes", params: { credentials: { club:, email: "mitch+overflow@example.com", phone: } }
     expect(response).to have_http_status(:too_many_requests)
     json = JSON.parse(response.body)
     expect(json["status"]).to eq("rate_limited")
@@ -382,7 +392,7 @@ RSpec.describe "API V1 Intakes", type: :request do
         body: { status: { nextPage: 0 }, members: [] }.to_json
       )
 
-    post "/api/v1/intakes", params: { credentials: { club:, email: } }
+    post "/api/v1/intakes", params: { credentials: { club:, email:, phone: } }
     json = JSON.parse(response.body)
     expect(json["status"]).to eq("not_found")
 
@@ -402,7 +412,7 @@ RSpec.describe "API V1 Intakes", type: :request do
       mailer_double
     end
 
-    post "/api/v1/intakes", params: { credentials: { club:, email: } }
+    post "/api/v1/intakes", params: { credentials: { club:, email:, phone: } }
     expect(response).to have_http_status(:bad_gateway)
     json = JSON.parse(response.body)
     expect(json["status"]).to eq("upstream_error")
@@ -423,7 +433,7 @@ RSpec.describe "API V1 Intakes", type: :request do
       mailer_double
     end
 
-    post "/api/v1/intakes", params: { credentials: { club:, email: } }
+    post "/api/v1/intakes", params: { credentials: { club:, email:, phone: } }
     expect(response).to have_http_status(:internal_server_error)
 
     attempt = IntakeAttempt.find_by(email: email, club: club)
@@ -442,13 +452,13 @@ RSpec.describe "API V1 Intakes", type: :request do
         )
 
       # First attempt
-      post "/api/v1/intakes", params: { credentials: { club:, email: } }
+      post "/api/v1/intakes", params: { credentials: { club:, email:, phone: } }
       attempt = IntakeAttempt.find_by(email: email, club: club)
       expect(attempt.status).to eq("member_missing")
       expect(attempt.attempts_count).to eq(1)
 
       # Second attempt (retry) with same email and club
-      post "/api/v1/intakes", params: { credentials: { club:, email: } }
+      post "/api/v1/intakes", params: { credentials: { club:, email:, phone: } }
       attempt.reload
       expect(attempt.status).to eq("member_missing")
       expect(attempt.attempts_count).to eq(2)  # Incremented on retry

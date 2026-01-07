@@ -30,7 +30,7 @@ RSpec.describe "API V1 Intakes Integration", type: :request do
 
       post "/api/v1/intakes",
         params: {
-          credentials: { club: "1552", email: real_email }
+          credentials: { club: "1552", email: real_email, phone: "(555) 555-5555" }
         }
 
       expect(response).to have_http_status(:ok)
