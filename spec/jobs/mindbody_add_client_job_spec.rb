@@ -1,8 +1,11 @@
 require "rails_helper"
 
 RSpec.describe MindbodyAddClientJob, type: :job do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:mindbody_client) { instance_double(MindbodyClient) }
   let(:mailer_double) { instance_double(ActionMailer::MessageDelivery, deliver_later: true) }
+  let(:charged_on_specific_date) { (Date.current + 2).iso8601 }
   let(:payload) do
     {
       first_name: "Jane",
@@ -16,7 +19,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
   let(:target_contract) do
     {
       "Id" => contract_id,
-      "ClientsChargedOnSpecificDate" => "2024-01-15"
+      "ClientsChargedOnSpecificDate" => charged_on_specific_date
     }
   end
 
@@ -119,6 +122,33 @@ RSpec.describe MindbodyAddClientJob, type: :job do
       attempt.reload
       expect(attempt.status).to eq("mb_failed")
       expect(attempt.error_message).to eq("boom")
+    end
+
+    it "uses tomorrow when the contract charge date is in the past" do
+      attempt = IntakeAttempt.create!(
+        club: "1552",
+        email: "jane@example.com",
+        status: "enqueued",
+        request_payload: {}
+      )
+
+      travel_to(Time.zone.local(2025, 1, 1, 9, 0, 0)) do
+        past_contract = target_contract.merge("ClientsChargedOnSpecificDate" => "2024-01-15")
+        allow(mindbody_client).to receive(:find_contract_by_name).and_return(past_contract)
+        allow(mindbody_client).to receive(:add_client).and_return({ "Client" => { "Id" => "abc" } })
+        allow(mindbody_client).to receive(:ensure_required_client_fields!)
+        allow(mindbody_client).to receive(:send_password_reset_email)
+
+        expect(mindbody_client).to receive(:purchase_contract).with(
+          client_id: "abc",
+          contract_id: past_contract["Id"],
+          location_id: 1,
+          send_notifications: false,
+          start_date: "2025-01-02"
+        ).and_return(contract_purchase_response)
+
+        described_class.perform_now(intake_attempt_id: attempt.id, **payload)
+      end
     end
 
     it "does not mark attempt failed on transient timeouts" do

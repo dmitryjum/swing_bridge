@@ -4,12 +4,13 @@ class Api::V1::IntakesController < ApplicationController
   end
 
   def create
-    email = credential_params[:email]
-    club = credential_params[:club]
-    phone = credential_params[:phone]
+    credentials = credential_params
+    email = credentials[:email]
+    club = credentials[:club]
+    phone = credentials[:phone]
 
     attempt = IntakeAttempt.find_or_initialize_by(email: email, club: club)
-    client = AbcClient.new(club: credential_params[:club])
+    client = AbcClient.new(club: club)
 
     if attempt.new_record?
       attempt.status = :pending
@@ -18,10 +19,10 @@ class Api::V1::IntakesController < ApplicationController
       attempt.attempts_count += 1
       attempt.status = :pending unless mb_client_created
     end
-    attempt.request_payload = credential_params.to_h
+    attempt.request_payload = credentials.to_h
     attempt.save!
 
-    member_summary = client.find_member_by_email(credential_params[:email])
+    member_summary = client.find_member_by_email(email)
     return update_and_render_not_found(attempt) unless member_summary
 
     agreement = client.get_member_agreement || {}
@@ -57,6 +58,8 @@ class Api::V1::IntakesController < ApplicationController
     Rails.logger.warn("[ABC upstream] #{e.class}: #{e.message}")
     AdminMailer.intake_failure(attempt, e).deliver_later
     render json: { status: "upstream_error", error: "ABC unavailable" }, status: :bad_gateway
+  rescue ActionController::ParameterMissing => e
+    render json: { status: "bad_request", error: e.message }, status: :bad_request
   rescue => e
     attempt&.update!(status: :failed, error_message: e.message)
     Rails.logger.error("[Intakes#create] #{e.class}: #{e.message}")
@@ -72,7 +75,13 @@ class Api::V1::IntakesController < ApplicationController
   end
 
   def credential_params
-    params.require(:credentials).permit(:club, :email, :phone)
+    params.require(:credentials).permit(:club, :email, :phone).tap do |p|
+      missing = %i[club email phone].select { |key| p[key].blank? }
+      if missing.any?
+        raise ActionController::ParameterMissing,
+          "Missing required credentials: #{missing.join(', ')}"
+      end
+    end
   end
 
   def build_mindbody_extras(personal, phone)
