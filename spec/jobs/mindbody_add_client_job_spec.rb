@@ -124,7 +124,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
       expect(attempt.error_message).to eq("boom")
     end
 
-    it "uses tomorrow when the contract charge date is in the past" do
+    it "passes through the contract charge date when in the past" do
       attempt = IntakeAttempt.create!(
         club: "1552",
         email: "jane@example.com",
@@ -144,7 +144,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
           contract_id: past_contract["Id"],
           location_id: 1,
           send_notifications: false,
-          start_date: "2025-01-02"
+          start_date: "2024-01-15"
         ).and_return(contract_purchase_response)
 
         described_class.perform_now(intake_attempt_id: attempt.id, **payload)
