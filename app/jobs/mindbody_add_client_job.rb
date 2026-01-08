@@ -79,7 +79,7 @@ class MindbodyAddClientJob < ApplicationJob
             mb: mb,
             client_id: client_id,
             contract_id: target_contract_id,
-            start_date: contract_start_date(target_contract["ClientsChargedOnSpecificDate"])
+            start_date: target_contract["ClientsChargedOnSpecificDate"]
           )
           has_contract = true
         end
@@ -131,7 +131,7 @@ class MindbodyAddClientJob < ApplicationJob
       mb: mb,
       client_id: client_id,
       contract_id: target_contract_id,
-      start_date: contract_start_date(target_contract["ClientsChargedOnSpecificDate"])
+      start_date: target_contract["ClientsChargedOnSpecificDate"]
     )
     rest_result = mb.send_password_reset_email(first_name:, last_name:, email:)
     password_reset_sent = true
@@ -181,14 +181,5 @@ class MindbodyAddClientJob < ApplicationJob
       start_date: start_date,
       send_notifications: false
     )
-  end
-
-  def contract_start_date(raw_date)
-    return Date.tomorrow.iso8601 if raw_date.blank?
-
-    parsed = Time.zone.parse(raw_date.to_s) rescue nil
-    return raw_date if parsed && parsed.to_date >= Date.current
-
-    Date.tomorrow.iso8601
   end
 end

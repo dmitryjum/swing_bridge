@@ -30,4 +30,23 @@ RSpec.describe MindbodyClient do
 
     expect(calls).to eq(2)
   end
+
+  it "formats contract start dates with UTC Z suffix" do
+    response = instance_double(Faraday::Response, success?: true, body: { "Sale" => { "Id" => "sale-1" } })
+    client = described_class.new
+
+    expect(http_client).to receive(:post).with(
+      "sale/purchasecontract",
+      hash_including(
+        body: hash_including(StartDate: "2026-01-01T00:00:00Z")
+      )
+    ).and_return(response)
+
+    client.purchase_contract(
+      client_id: "client-1",
+      contract_id: "contract-1",
+      location_id: 1,
+      start_date: "2026-01-01T00:00:00"
+    )
+  end
 end
