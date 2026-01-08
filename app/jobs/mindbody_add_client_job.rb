@@ -50,7 +50,7 @@ class MindbodyAddClientJob < ApplicationJob
         duplicate_client_details = mb.client_complete_info(client_id: matched_duplicate["Id"])
         duplicate_client_active = duplicate_client_details[:active]
         duplicate_client = duplicate_client_details[:client]
-        if duplicate_client_active == false # activate inactive client
+        unless duplicate_client_active # activate inactive client
           Rails.logger.info("[MindbodyAddClientJob] Reactivating MindBody client #{matched_duplicate["Id"]}")
           update_response = mb.update_client(client_id: matched_duplicate["Id"], attrs: { Active: true })
           duplicate_client_active = update_response.dig("Client", "Active")
