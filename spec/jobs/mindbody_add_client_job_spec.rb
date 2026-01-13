@@ -74,13 +74,12 @@ RSpec.describe MindbodyAddClientJob, type: :job do
         email:      "jane@example.com",
         extras:     { BirthDate: "2000-01-01", MobilePhone: "555-1234" }
       ).and_return({ "Client" => { "Id" => "abc" } })
-      expect(mindbody_client).to receive(:find_contract_by_name).with("Swing - Membership (Gold's Member)", location_id: 1).and_return(target_contract)
+      expect(mindbody_client).to receive(:find_contract_by_name).with("Swing Membership (Gold's Member NEW1)", location_id: 1).and_return(target_contract)
       expect(mindbody_client).to receive(:purchase_contract).with(
         client_id: "abc",
         contract_id: target_contract["Id"],
         location_id: 1,
-        send_notifications: false,
-        start_date: target_contract["ClientsChargedOnSpecificDate"]
+        send_notifications: false
       ).and_return(contract_purchase_response)
       expect(mindbody_client).to receive(:send_password_reset_email).with(
         first_name: "Jane",
@@ -124,7 +123,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
       expect(attempt.error_message).to eq("boom")
     end
 
-    it "passes through the contract charge date when in the past" do
+    it "ignores the contract charge date when purchasing" do
       attempt = IntakeAttempt.create!(
         club: "1552",
         email: "jane@example.com",
@@ -143,8 +142,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
           client_id: "abc",
           contract_id: past_contract["Id"],
           location_id: 1,
-          send_notifications: false,
-          start_date: "2024-01-15"
+          send_notifications: false
         ).and_return(contract_purchase_response)
 
         described_class.perform_now(intake_attempt_id: attempt.id, **payload)
@@ -189,14 +187,13 @@ RSpec.describe MindbodyAddClientJob, type: :job do
 
         expect(mindbody_client).not_to receive(:ensure_required_client_fields!)
         expect(mindbody_client).not_to receive(:add_client)
-        expect(mindbody_client).to receive(:find_contract_by_name).with("Swing - Membership (Gold's Member)", location_id: 1).and_return(target_contract)
+        expect(mindbody_client).to receive(:find_contract_by_name).with("Swing Membership (Gold's Member NEW1)", location_id: 1).and_return(target_contract)
         expect(mindbody_client).to receive(:client_contracts).with(client_id: "def").and_return([])
         expect(mindbody_client).to receive(:purchase_contract).with(
           client_id: "def",
           contract_id: target_contract["Id"],
           location_id: 1,
-          send_notifications: false,
-          start_date: target_contract["ClientsChargedOnSpecificDate"]
+          send_notifications: false
         ).and_return(contract_purchase_response)
         expect(mindbody_client).to receive(:send_password_reset_email).with(
           first_name: "Jane",
@@ -249,7 +246,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
 
           expect(mindbody_client).not_to receive(:ensure_required_client_fields!)
           expect(mindbody_client).not_to receive(:add_client)
-          expect(mindbody_client).to receive(:find_contract_by_name).with("Swing - Membership (Gold's Member)", location_id: 1).and_return(target_contract)
+          expect(mindbody_client).to receive(:find_contract_by_name).with("Swing Membership (Gold's Member NEW1)", location_id: 1).and_return(target_contract)
           expect(mindbody_client).to receive(:client_contracts).with(client_id: "def").and_return([ { "ContractID" => contract_id } ])
           expect(mindbody_client).not_to receive(:purchase_contract)
           expect(mindbody_client).not_to receive(:send_password_reset_email)
