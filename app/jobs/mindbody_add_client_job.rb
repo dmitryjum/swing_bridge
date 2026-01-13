@@ -22,7 +22,7 @@ class MindbodyAddClientJob < ApplicationJob
     mb = MindbodyClient.new
     target_contract_id = nil
     contract_purchase = nil
-    password_reset_sent = false
+    password_reset_sent = !!attempt&.response_payload&.dig("mindbody_password_reset_sent")
 
     attrs = {
       "FirstName" => first_name,
@@ -78,14 +78,16 @@ class MindbodyAddClientJob < ApplicationJob
           contract_purchase = purchase_target_contract!(
             mb: mb,
             client_id: client_id,
-            contract_id: target_contract_id,
-            # start_date: target_contract["ClientsChargedOnSpecificDate"]
+            contract_id: target_contract_id
           )
           has_contract = true
         end
-        if duplicate_client_reactivated
+        if duplicate_client_reactivated || !password_reset_sent
           mb.send_password_reset_email(first_name:, last_name:, email:)
           password_reset_sent = true
+          Rails.logger.info(
+            "[MindbodyAddClientJob] Sent password reset for duplicate client #{email} (reactivated=#{duplicate_client_reactivated})"
+          )
         end
       end
 
@@ -130,8 +132,7 @@ class MindbodyAddClientJob < ApplicationJob
     contract_purchase = purchase_target_contract!(
       mb: mb,
       client_id: client_id,
-      contract_id: target_contract_id,
-      # start_date: target_contract["ClientsChargedOnSpecificDate"]
+      contract_id: target_contract_id
     )
     rest_result = mb.send_password_reset_email(first_name:, last_name:, email:)
     password_reset_sent = true
@@ -178,7 +179,6 @@ class MindbodyAddClientJob < ApplicationJob
       client_id: client_id,
       contract_id: contract_id,
       location_id: TARGET_LOCATION_ID,
-      # start_date: start_date,
       send_notifications: false
     )
   end
