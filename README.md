@@ -6,7 +6,7 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
 
 ## 🧩 What the app does
 
-- `POST /api/v1/intakes` accepts `credentials: { club, email }` and looks up the member in ABC.
+- `POST /api/v1/intakes` accepts `credentials: { club, email, phone }` and looks up the member in ABC.
 - ABC agreement data is evaluated against upgrade thresholds (bi-weekly > `ABC_BIWEEKLY_UPGRADE_THRESHOLD` or monthly > `ABC_MONTHLY_UPGRADE_THRESHOLD`), plus paid-in-full eligibility via PIF markers or `downPayment > ABC_PIF_UPGRADE_THRESHOLD`. Ineligible members are returned immediately.
 - Eligible requests enqueue `MindbodyAddClientJob`, which creates or reactivates a MindBody client, purchases the target contract, and sends a password reset email.
 - All attempts are stored in `IntakeAttempt` with statuses (`pending`, `found`, `eligible`, `enqueued`, `mb_success`, `mb_failed`, `ineligible`, `member_missing`, `upstream_error`, `failed`) so the UI or admin emails can reflect history.
@@ -32,7 +32,7 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
 1) **Intake** (`Api::V1::IntakesController#create`)
    - Finds or initializes an `IntakeAttempt` keyed by `club` + `email`, increments `attempts_count` on retries, and tracks request/response payloads.
    - Calls `AbcClient#find_member_by_email`; if none, marks `member_missing` and returns `status: not_found`.
-   - Pulls agreement via `AbcClient#get_member_agreement` and builds MindBody extras (phone/address/birth date) from ABC personal data.
+   - Pulls agreement via `AbcClient#get_member_agreement` and builds MindBody extras (phone/address/birth date) from ABC personal data, plus the request phone.
    - If upgradeable, enqueues `MindbodyAddClientJob` and returns `status: eligible` (or `mb_client_created` if an earlier job already succeeded). Otherwise returns `status: ineligible`.
    - On ABC network errors: marks `upstream_error`, logs, and emails admins. On other errors: marks `failed` and emails admins.
 
@@ -66,7 +66,7 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
 Request:
 ```json
 {
-  "credentials": { "club": "1552", "email": "mitch@example.com" }
+  "credentials": { "club": "1552", "email": "mitch@example.com", "phone": "555-1234" }
 }
 ```
 
@@ -102,7 +102,7 @@ bin/rails solid_queue:start   # or: bin/jobs start
 ```bash
 curl -X POST http://localhost:3000/api/v1/intakes \
   -H "Content-Type: application/json" \
-  -d '{"credentials":{"club":"1552","email":"mitch@example.com"}}'
+  -d '{"credentials":{"club":"1552","email":"mitch@example.com","phone":"555-1234"}}'
 ```
 
 Mission Control Jobs UI: http://localhost:3000/api/v1/jobs (dev).

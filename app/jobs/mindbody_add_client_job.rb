@@ -85,9 +85,6 @@ class MindbodyAddClientJob < ApplicationJob
         if duplicate_client_reactivated || !password_reset_sent
           mb.send_password_reset_email(first_name:, last_name:, email:)
           password_reset_sent = true
-          Rails.logger.info(
-            "[MindbodyAddClientJob] Sent password reset for duplicate client #{email} (reactivated=#{duplicate_client_reactivated})"
-          )
         end
       end
 
