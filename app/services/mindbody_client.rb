@@ -226,10 +226,10 @@ class MindbodyClient
       contract_id:,
       location_id:,
       send_notifications: false,
-      start_date: "",
+      # start_date: "",
       credit_card_info: default_credit_card_info
     )
-    formatted_start_date = format_contract_start_date(start_date)
+    # formatted_start_date = format_contract_start_date(start_date)
     request(
       method: :post,
       path: "sale/purchasecontract",
@@ -238,7 +238,7 @@ class MindbodyClient
         ContractId: contract_id,
         LocationId: location_id,
         SendNotifications: send_notifications,
-        StartDate: formatted_start_date,
+        # StartDate: formatted_start_date,
         CreditCardInfo: credit_card_info
       },
       error_label: "purchasecontract"
@@ -251,14 +251,14 @@ class MindbodyClient
     name.to_s.downcase.gsub(/[^a-z0-9]+/, " ").squeeze(" ").strip
   end
 
-  def format_contract_start_date(start_date)
-    return start_date if start_date.blank?
+  # def format_contract_start_date(start_date)
+  #   return start_date if start_date.blank?
 
-    parsed = Time.zone.parse(start_date.to_s) rescue nil
-    return start_date if parsed.nil?
+  #   parsed = Time.zone.parse(start_date.to_s) rescue nil
+  #   return start_date if parsed.nil?
 
-    parsed.utc.iso8601
-  end
+  #   parsed.utc.iso8601
+  # end
 
   def request(method:, path:, params: nil, body: nil, headers: nil, error_label: nil)
     request_args = { headers: headers || auth_headers }

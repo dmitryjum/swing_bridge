@@ -3,7 +3,7 @@ class MindbodyAddClientJob < ApplicationJob
   queue_as :default
   RETRYABLE_ERRORS = [ Faraday::TimeoutError, Faraday::ConnectionFailed ].freeze
 
-  TARGET_CONTRACT_NAME = "Swing - Membership (Gold's Member)".freeze
+  TARGET_CONTRACT_NAME = "Swing Membership (Gold's Member NEW1)".freeze
   TARGET_LOCATION_ID = 1
 
   retry_on(*RETRYABLE_ERRORS, wait: ->(executions) { (5 * (2 ** (executions - 1))).seconds }, attempts: 3) do |job, error|
@@ -79,7 +79,7 @@ class MindbodyAddClientJob < ApplicationJob
             mb: mb,
             client_id: client_id,
             contract_id: target_contract_id,
-            start_date: target_contract["ClientsChargedOnSpecificDate"]
+            # start_date: target_contract["ClientsChargedOnSpecificDate"]
           )
           has_contract = true
         end
@@ -131,7 +131,7 @@ class MindbodyAddClientJob < ApplicationJob
       mb: mb,
       client_id: client_id,
       contract_id: target_contract_id,
-      start_date: target_contract["ClientsChargedOnSpecificDate"]
+      # start_date: target_contract["ClientsChargedOnSpecificDate"]
     )
     rest_result = mb.send_password_reset_email(first_name:, last_name:, email:)
     password_reset_sent = true
@@ -173,12 +173,12 @@ class MindbodyAddClientJob < ApplicationJob
     contract
   end
 
-  def purchase_target_contract!(mb:, client_id:, contract_id:, start_date:)
+  def purchase_target_contract!(mb:, client_id:, contract_id:)
     mb.purchase_contract(
       client_id: client_id,
       contract_id: contract_id,
       location_id: TARGET_LOCATION_ID,
-      start_date: start_date,
+      # start_date: start_date,
       send_notifications: false
     )
   end
