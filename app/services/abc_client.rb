@@ -30,7 +30,7 @@ class AbcClient
     personal = member["personal"] || {}
 
     @requested_member  = {
-      member_id:  member["memberId"],
+      abc_member_id: member["memberId"],
       first_name: personal["firstName"],
       last_name:  personal["lastName"],
       email:      personal["email"]
@@ -42,7 +42,7 @@ class AbcClient
   end
 
   def get_member_agreement
-    res = @client.get("#{@club}/members/#{@requested_member[:member_id]}")
+    res = @client.get("#{@club}/members/#{@requested_member[:abc_member_id]}")
     raise "ABC HTTP #{res.status}" unless res.success?
 
     data    = res.body || {}

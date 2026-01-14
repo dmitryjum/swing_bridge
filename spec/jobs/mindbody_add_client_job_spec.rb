@@ -55,7 +55,8 @@ RSpec.describe MindbodyAddClientJob, type: :job do
         club: "1552",
         email: "jane@example.com",
         status: "enqueued",
-        request_payload: {}
+        request_payload: {},
+        response_payload: { "abc_member_id" => "abc-123", "email" => "jane@example.com" }
       )
 
       expect(mindbody_client).to receive(:ensure_required_client_fields!).with(
@@ -93,7 +94,10 @@ RSpec.describe MindbodyAddClientJob, type: :job do
       expect(attempt.status).to eq("mb_success")
       expect(attempt.response_payload).to eq(
         {
+          "email" => "jane@example.com",
+          "abc_member_id" => "abc-123",
           "Client" => { "Id" => "abc" },
+          "mindbody_client_id" => "abc",
           "mindbody_contract_purchase" => contract_purchase_response,
           "mindbody_password_reset_sent" => true
         }
@@ -221,6 +225,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
           "mindbody_duplicate_client_active" => true,
           "mindbody_duplicate_client" => { "Id" => "def", "Active" => false },
           "mindbody_duplicate_client_reactivated" => true,
+          "mindbody_client_id" => "def",
           "mindbody_client_contracts" => [],
           "mindbody_contract_purchase" => contract_purchase_response,
           "mindbody_password_reset_sent" => true
@@ -270,6 +275,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
           expect(attempt.response_payload).to include(
             "mindbody_duplicate_client_active" => true,
             "mindbody_duplicate_client_reactivated" => false,
+            "mindbody_client_id" => "def",
             "mindbody_client_contracts" => [],
             "mindbody_contract_purchase" => contract_purchase_response,
             "mindbody_password_reset_sent" => true
@@ -304,6 +310,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
           expect(attempt.response_payload).to include(
             "mindbody_duplicate_client_active" => true,
             "mindbody_duplicate_client_reactivated" => false,
+            "mindbody_client_id" => "def",
             "mindbody_client_contracts" => [ { "ContractID" => contract_id } ],
             "mindbody_contract_purchase" => nil,
             "mindbody_password_reset_sent" => true
