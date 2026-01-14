@@ -50,6 +50,7 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
 
 4) **Data model**
    - `IntakeAttempt` table (unique on `club` + `email`) captures request/response payloads, attempts_count, status, and error_message for auditing and idempotency.
+   - `response_payload` includes the ABC member id (`abc_member_id`) and MindBody client id (`mindbody_client_id`) when available.
 
 5) **Operations**
    - Background worker runs via Solid Queue (`bin/rails solid_queue:start` or `bin/jobs start`); Procfile/Foreman (`bin/dev`) runs web + worker together.
@@ -154,7 +155,7 @@ Coverage: intake controller flow (eligibility/not-found/duplicates/errors), Mind
 
 ## 🧰 Operational tips
 
-- IntakeAttempt statuses are the primary debugging surface; check `response_payload` for MindBody metadata (duplicates, contract purchase, password reset flag).
+- IntakeAttempt statuses are the primary debugging surface; check `response_payload` for ABC/MindBody identifiers plus metadata (duplicates, contract purchase, password reset flag).
 - `MindbodyClient#call_endpoint` is handy in console for ad hoc API calls.
 - To prune history locally: `bin/rails intake_attempts:cleanup`.
 - Production uses `config/recurring.yml` to clear finished Solid Queue jobs hourly; adjust if the queue grows unexpectedly.
