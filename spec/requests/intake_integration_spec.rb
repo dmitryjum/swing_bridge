@@ -37,7 +37,7 @@ RSpec.describe "API V1 Intakes Integration", type: :request do
       json = JSON.parse(response.body)
       # Verify response for ineligible member
       expect(json["status"]).to eq("ineligible")
-      expect(json.dig("member", "member_id")).to be_present
+      expect(json.dig("member", "abc_member_id")).to be_present
     end
   end
 

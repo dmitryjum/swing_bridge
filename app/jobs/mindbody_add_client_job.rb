@@ -102,6 +102,7 @@ class MindbodyAddClientJob < ApplicationJob
             "mindbody_duplicate_client" => duplicate_client,
             "mindbody_duplicate_client_active" => duplicate_client_active,
             "mindbody_duplicate_client_reactivated" => duplicate_client_reactivated,
+            "mindbody_client_id" => client_id,
             "mindbody_client_contracts" => client_contracts,
             "mindbody_contract_purchase" => contract_purchase,
             "mindbody_password_reset_sent" => password_reset_sent
@@ -138,7 +139,8 @@ class MindbodyAddClientJob < ApplicationJob
       "-> #{result.dig("Client", "Id") || result.inspect}"
     )
     if attempt
-      merged_payload = result.merge(
+      merged_payload = (attempt.response_payload || {}).merge(result).merge(
+        "mindbody_client_id" => client_id,
         "mindbody_contract_purchase" => contract_purchase,
         "mindbody_password_reset_sent" => password_reset_sent
       )

@@ -79,7 +79,7 @@ RSpec.describe "API V1 Intakes", type: :request do
     expect(response).to have_http_status(:ok)
     json = JSON.parse(response.body)
     expect(json["status"]).to eq("eligible")
-    expect(json.dig("member", "member_id")).to eq("abc-123")
+    expect(json.dig("member", "abc_member_id")).to eq("abc-123")
     expect(json.dig("member", "payment_freq")).to eq("Monthly")
 
     # IntakeAttempt tracking assertions
@@ -265,7 +265,7 @@ RSpec.describe "API V1 Intakes", type: :request do
     expect(response).to have_http_status(:ok)
     json = JSON.parse(response.body)
     expect(json["status"]).to eq("mb_client_created")
-    expect(json.dig("member", "member_id")).to eq("abc-123")
+    expect(json.dig("member", "abc_member_id")).to eq("abc-123")
 
     attempt = IntakeAttempt.find_by(email: email, club: club)
     expect(attempt.status).to eq("mb_success")
