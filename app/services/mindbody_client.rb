@@ -242,6 +242,15 @@ class MindbodyClient
     ).body
   end
 
+  def suspend_contract(client_id:, client_contract_id:)
+    request(
+      method: :post,
+      path: "client/suspendcontract",
+      body: { ClientId: client_id, ClientContractId: client_contract_id },
+      error_label: "suspendcontract"
+    ).body
+  end
+
   private
 
   def normalize_contract_name(name)
