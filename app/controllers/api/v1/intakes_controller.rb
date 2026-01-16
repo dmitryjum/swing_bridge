@@ -32,7 +32,7 @@ class Api::V1::IntakesController < ApplicationController
     )
     attempt.update!(status: :found, response_payload: member_summary) unless mb_client_created
 
-    if client.upgradable?
+    if AbcClient.eligible_for_contract?(agreement)
       extras = build_mindbody_extras(client.requested_personal, phone)
       attempt.update!(status: :eligible, response_payload: member_payload) unless mb_client_created
       MindbodyAddClientJob.perform_later(

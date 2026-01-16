@@ -19,6 +19,15 @@ class AdminMailer < ApplicationMailer
     )
   end
 
+  def eligibility_check_failure(attempt, error)
+    @attempt = attempt
+    @error = error
+
+    mail(
+      subject: "[SwingBridge][#{Rails.env}] Eligibility check failed for #{attempt.email}"
+    )
+  end
+
   private
 
   def recipient_emails

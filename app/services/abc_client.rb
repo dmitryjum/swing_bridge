@@ -50,42 +50,49 @@ class AbcClient
     @member_agreement = members.first["agreement"]
   end
 
-  def upgradable?
-    return false unless @member_agreement
+  def get_members_by_ids(ids)
+    ids = ids.join(",")
+    res = @client.get("#{@club}/members", params: { memberIds: ids })
+    raise "ABC HTTP #{res.status}" unless res.success?
 
-    freq   = @member_agreement["paymentFrequency"].to_s.downcase
-    amount = @member_agreement["nextDueAmount"].to_f
+    data    = res.body || {}
+    data["members"] || []
+  end
+
+  def self.eligible_for_contract?(agreement)
+    return false unless agreement
+
+    freq   = agreement["paymentFrequency"].to_s.downcase
+    amount = agreement["nextDueAmount"].to_f
 
     (freq == "bi-weekly" && amount > biweekly_threshold) ||
       (freq == "monthly" && amount > monthly_threshold) ||
-      (paid_in_full? && down_payment_amount > paid_in_full_threshold)
+      (paid_in_full?(agreement) && down_payment_amount(agreement) > paid_in_full_threshold)
   end
 
-  private
-
-  def paid_in_full?
-    membership_type = @member_agreement["membershipType"].to_s
-    membership_code = @member_agreement["membershipTypeAbcCode"].to_s
-    payment_plan    = @member_agreement["paymentPlan"].to_s
+  def self.paid_in_full?(agreement)
+    membership_type = agreement["membershipType"].to_s
+    membership_code = agreement["membershipTypeAbcCode"].to_s
+    payment_plan    = agreement["paymentPlan"].to_s
 
     membership_type.match?(/pif/i) ||
       membership_code.match?(/pif/i) ||
       payment_plan.match?(/paid in full/i)
   end
 
-  def down_payment_amount
-    @member_agreement["downPayment"].to_f
+  def self.down_payment_amount(agreement)
+    agreement["downPayment"].to_f
   end
 
-  def biweekly_threshold
+  def self.biweekly_threshold
     ENV.fetch("ABC_BIWEEKLY_UPGRADE_THRESHOLD", "24.98").to_f
   end
 
-  def monthly_threshold
+  def self.monthly_threshold
     ENV.fetch("ABC_MONTHLY_UPGRADE_THRESHOLD", "49.0").to_f
   end
 
-  def paid_in_full_threshold
+  def self.paid_in_full_threshold
     ENV.fetch("ABC_PIF_UPGRADE_THRESHOLD", "688.0").to_f
   end
 end

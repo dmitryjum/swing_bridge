@@ -1,0 +1,6 @@
+<h2>Eligibility Check Failure</h2>
+<p><strong>Email:</strong> <%= @attempt.email %></p>
+<p><strong>Club:</strong> <%= @attempt.club %></p>
+<p><strong>Error:</strong> <%= @error.class %>: <%= @error.message %></p>
+<p><strong>ABC Member ID:</strong> <%= @attempt.response_payload&.dig("abc_member_id") %></p>
+<p><strong>MindBody Client ID:</strong> <%= @attempt.response_payload&.dig("mindbody_client_id") %></p>
