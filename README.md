@@ -9,7 +9,7 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
 - `POST /api/v1/intakes` accepts `credentials: { club, email, phone }` and looks up the member in ABC.
 - ABC agreement data is evaluated against upgrade thresholds (bi-weekly > `ABC_BIWEEKLY_UPGRADE_THRESHOLD` or monthly > `ABC_MONTHLY_UPGRADE_THRESHOLD`), plus paid-in-full eligibility via PIF markers or `downPayment > ABC_PIF_UPGRADE_THRESHOLD`. Ineligible members are returned immediately.
 - Eligible requests enqueue `MindbodyAddClientJob`, which creates or reactivates a MindBody client, purchases the target contract, and sends a password reset email.
-- All attempts are stored in `IntakeAttempt` with statuses (`pending`, `found`, `eligible`, `enqueued`, `mb_success`, `mb_failed`, `ineligible`, `member_missing`, `upstream_error`, `failed`) so the UI or admin emails can reflect history.
+- All attempts are stored in `IntakeAttempt` with statuses (`pending`, `found`, `eligible`, `enqueued`, `mb_success`, `mb_failed`, `ineligible`, `member_missing`, `upstream_error`, `failed`, `suspended`) so the UI or admin emails can reflect history.
 - AdminMailer notifies on ABC failures (controller) and MindBody failures (job); production uses SMTP, development writes `.eml` files to `tmp/mail`.
 - Mission Control Jobs UI is mounted at `/api/v1/jobs` for monitoring Solid Queue (auth/configure upstream if exposing).
 - `POST /api/v1/intakes` is rate limited per IP and per email with JSON 429 responses via Rack::Attack.
@@ -56,7 +56,8 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
    - Background worker runs via Solid Queue (`bin/rails solid_queue:start` or `bin/jobs start`); Procfile/Foreman (`bin/dev`) runs web + worker together.
    - Mission Control Jobs UI at `/api/v1/jobs` for queue visibility.
    - Rake task `intake_attempts:cleanup` deletes attempts older than 6 months.
-   - `config/recurring.yml` schedules hourly cleanup of finished Solid Queue jobs in production.
+   - `bin/rails contracts:check_eligibility` identifies `mb_success` clients who no longer meet ABC thresholds and suspends their MindBody contracts. This runs bi-weekly via `config/recurring.yml` (production).
+- `config/recurring.yml` schedules hourly cleanup of finished Solid Queue jobs in production.
 
 ---
 
@@ -138,6 +139,7 @@ Email/host:
 Jobs/ops:
 - `JOB_CONCURRENCY` (Solid Queue worker processes; default 1)
 - `DATABASE_URL` (prod)
+- `ELIGIBILITY_SUSPEND_DELAY_MS` (default 500; delay between MindBody suspend calls)
 
 Dev mail delivery uses the `:file` adapter (see `tmp/mail`); production uses Gmail SMTP over STARTTLS.
 
