@@ -3,8 +3,8 @@
 namespace :contracts do
   desc "Check ABC eligibility and suspend ineligible MindBody contracts"
   task check_eligibility: :environment do
-    RETRY_ATTEMPTS = 3
-    RETRY_BASE_SLEEP = 0.5
+    retry_attempts = 3
+    retry_base_sleep = 0.5
     delay_ms = ENV.fetch("ELIGIBILITY_SUSPEND_DELAY_MS", "500").to_i
 
     attempts = IntakeAttempt.where(status: "mb_success")
@@ -25,7 +25,15 @@ namespace :contracts do
 
       # Single batch ABC call per club
       abc = AbcClient.new(club: club)
-      members = abc.get_members_by_ids(abc_to_attempt.keys)
+      members =
+        begin
+          abc.get_members_by_ids(abc_to_attempt.keys)
+        rescue Faraday::TimeoutError, Faraday::ConnectionFailed, StandardError => e
+          error_count += 1
+          Rails.logger.error("[EligibilityCheck] ABC ERROR club=#{club} #{e.class}: #{e.message}")
+          AdminMailer.eligibility_check_failure(club_attempts.first, e).deliver_later
+          next
+        end
       total_checked += members.size
 
       mb = MindbodyClient.new
@@ -58,12 +66,12 @@ namespace :contracts do
           Rails.logger.info("[EligibilityCheck] SUSPENDED #{attempt.email} response=#{response.inspect}")
         rescue Faraday::TimeoutError, Faraday::ConnectionFailed => e
           retries += 1
-          if retries <= RETRY_ATTEMPTS
-            sleep(RETRY_BASE_SLEEP * (2 ** (retries - 1)))
+          if retries <= retry_attempts
+            sleep(retry_base_sleep * (2 ** (retries - 1)))
             retry
           end
           error_count += 1
-          Rails.logger.error("[EligibilityCheck] TIMEOUT #{attempt.email} after #{RETRY_ATTEMPTS} retries: #{e.message}")
+          Rails.logger.error("[EligibilityCheck] TIMEOUT #{attempt.email} after #{retry_attempts} retries: #{e.message}")
           AdminMailer.eligibility_check_failure(attempt, e).deliver_later
         rescue MindbodyClient::ApiError => e
           error_count += 1

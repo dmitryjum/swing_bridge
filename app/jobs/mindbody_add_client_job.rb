@@ -132,7 +132,7 @@ class MindbodyAddClientJob < ApplicationJob
       client_id: client_id,
       contract_id: target_contract_id
     )
-    rest_result = mb.send_password_reset_email(first_name:, last_name:, email:)
+    mb.send_password_reset_email(first_name:, last_name:, email:)
     password_reset_sent = true
     Rails.logger.info(
       "[MindbodyAddClientJob] Created client #{email} " \

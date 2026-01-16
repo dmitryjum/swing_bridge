@@ -110,4 +110,17 @@ RSpec.describe "contracts:check_eligibility rake task" do
 
     Rake::Task["contracts:check_eligibility"].invoke
   end
+
+  it "emails and skips the club when ABC fetch fails" do
+    allow(abc_client).to receive(:get_members_by_ids).and_raise(Faraday::TimeoutError, "timeout")
+
+    expect(AdminMailer).to receive(:eligibility_check_failure).with(eligible_attempt, kind_of(Faraday::TimeoutError))
+      .and_return(mailer_double)
+    expect(mindbody_client).not_to receive(:suspend_contract)
+
+    Rake::Task["contracts:check_eligibility"].invoke
+
+    expect(eligible_attempt.reload.status).to eq("mb_success")
+    expect(ineligible_attempt.reload.status).to eq("mb_success")
+  end
 end
