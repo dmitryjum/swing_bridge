@@ -9,7 +9,7 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
 - `POST /api/v1/intakes` accepts `credentials: { club, email, phone }` and looks up the member in ABC.
 - ABC agreement data is evaluated against upgrade thresholds (bi-weekly > `ABC_BIWEEKLY_UPGRADE_THRESHOLD` or monthly > `ABC_MONTHLY_UPGRADE_THRESHOLD`), plus paid-in-full eligibility via PIF markers or `downPayment > ABC_PIF_UPGRADE_THRESHOLD`. Ineligible members are returned immediately.
 - Eligible requests enqueue `MindbodyAddClientJob`, which creates or reactivates a MindBody client, purchases the target contract, and sends a password reset email.
-- All attempts are stored in `IntakeAttempt` with statuses (`pending`, `found`, `eligible`, `enqueued`, `mb_success`, `mb_failed`, `ineligible`, `member_missing`, `upstream_error`, `failed`) so the UI or admin emails can reflect history.
+- All attempts are stored in `IntakeAttempt` with statuses (`pending`, `found`, `eligible`, `enqueued`, `mb_success`, `mb_failed`, `ineligible`, `member_missing`, `upstream_error`, `failed`, `terminated`) so the UI or admin emails can reflect history.
 - AdminMailer notifies on ABC failures (controller) and MindBody failures (job); production uses SMTP, development writes `.eml` files to `tmp/mail`.
 - Mission Control Jobs UI is mounted at `/api/v1/jobs` for monitoring Solid Queue (auth/configure upstream if exposing).
 - `POST /api/v1/intakes` is rate limited per IP and per email with JSON 429 responses via Rack::Attack.
@@ -38,7 +38,7 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
 
 2) **MindBody job** (`MindbodyAddClientJob`)
    - Validates required fields against `MindbodyClient#required_client_fields`.
-   - Dedupes via `clientduplicates`; if a matching client exists, fetches details, reactivates inactive accounts, ensures the target contract exists, purchases it if missing, and records duplicate metadata. Optionally triggers a password reset when reactivating.
+   - Dedupes via `clientduplicates`; if a matching client exists, fetches details, reactivates inactive accounts, applies contract rules (see Contract handling rules), and records duplicate metadata. Optionally triggers a password reset when reactivating.
    - If no duplicate, calls `addclient`, then purchases the contract and triggers password reset email.
    - Updates `IntakeAttempt` to `mb_success` with MindBody response/metadata. On `AuthError`/`ApiError`, sets `mb_failed`, emails admins, and re-raises so Solid Queue can retry. Unexpected errors set `failed` and notify admins.
 
@@ -56,7 +56,35 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
    - Background worker runs via Solid Queue (`bin/rails solid_queue:start` or `bin/jobs start`); Procfile/Foreman (`bin/dev`) runs web + worker together.
    - Mission Control Jobs UI at `/api/v1/jobs` for queue visibility.
    - Rake task `intake_attempts:cleanup` deletes attempts older than 6 months.
-   - `config/recurring.yml` schedules hourly cleanup of finished Solid Queue jobs in production.
+   - `bin/rails contracts:check_eligibility` identifies `mb_success` clients who no longer meet ABC thresholds and terminates their MindBody contracts. Run this via your scheduler (e.g., Render cron).
+- Schedule periodic maintenance (for example, `SolidQueue::Job.clear_finished_in_batches`) via your scheduler of choice if needed.
+
+---
+
+## 📄 Contract handling rules (MindBody)
+
+MindBody "purchase contract" creates multiple client contract purchase rows for a single ContractID. Terminating one row does not cascade; each active row must be terminated explicitly. Terminated rows remain in `clientcontracts` and are considered inactive when `TerminationDate` is present.
+
+Definitions:
+- Contract template: MindBody contract definition identified by `ContractID`.
+- Client contract purchase row: per-client row in `clientcontracts` with `Id`, `ContractID`, `StartDate`, `TerminationDate`.
+- Active row: `TerminationDate` is nil.
+
+Rules:
+- A client "has the contract" if at least one active row exists for the target `ContractID`.
+- When we need the contract to be active immediately, we use a clear-slate approach:
+  - If any active rows exist for the target `ContractID`, terminate all active rows first, then purchase again.
+  - If no active rows exist, purchase directly.
+- Termination is idempotent: rows with `TerminationDate` set are skipped.
+- Termination date selection (date-level comparison, site time zone):
+  - If `StartDate` is in the future, terminate with `TerminationDate = StartDate` (date portion).
+  - Otherwise, terminate with `TerminationDate = today`.
+- Each termination call must confirm success from the API response message for the specific `ClientContractID`. If not confirmed, we treat it as an error and do not proceed to purchase.
+
+Where this logic applies:
+- `MindbodyAddClientJob`: handles duplicates and purchase decisions; always enforces clear-slate before purchasing.
+- `contracts:check_eligibility`: terminates all active rows when a client becomes ineligible; idempotent on re-run.
+- ContractId source: the eligibility task first reads `response_payload.mindbody_contract_id` (or `mindbody_contract_purchase.ContractId/ContractID`) and only falls back to a live MindBody lookup if missing.
 
 ---
 
@@ -138,6 +166,7 @@ Email/host:
 Jobs/ops:
 - `JOB_CONCURRENCY` (Solid Queue worker processes; default 1)
 - `DATABASE_URL` (prod)
+- `ELIGIBILITY_SUSPEND_DELAY_MS` (default 500; delay between MindBody terminate calls)
 
 Dev mail delivery uses the `:file` adapter (see `tmp/mail`); production uses Gmail SMTP over STARTTLS.
 
@@ -158,6 +187,6 @@ Coverage: intake controller flow (eligibility/not-found/duplicates/errors), Mind
 - IntakeAttempt statuses are the primary debugging surface; check `response_payload` for ABC/MindBody identifiers plus metadata (duplicates, contract purchase, password reset flag).
 - `MindbodyClient#call_endpoint` is handy in console for ad hoc API calls.
 - To prune history locally: `bin/rails intake_attempts:cleanup`.
-- Production uses `config/recurring.yml` to clear finished Solid Queue jobs hourly; adjust if the queue grows unexpectedly.
+- If the Solid Queue table grows unexpectedly, add a scheduled cleanup task via your scheduler.
 - Health: `/up` for load balancers; `/api/v1/jobs` for queue state (protect in prod).
 - Rack::Attack uses Solid Cache in production; ensure `solid_cache_entries` is migrated.

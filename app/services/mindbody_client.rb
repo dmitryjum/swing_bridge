@@ -222,6 +222,59 @@ class MindbodyClient
     Array(res.body && res.body["Contracts"])
   end
 
+  def active_client_contracts(client_id:, contract_id:, contracts: nil)
+    contracts ||= client_contracts(client_id: client_id)
+    Array(contracts).select do |contract|
+      contract["ContractID"].to_s == contract_id.to_s && contract["TerminationDate"].blank?
+    end
+  end
+
+  def terminate_active_client_contracts!(
+    client_id:,
+    contract_id:,
+    contracts: nil,
+    today: Time.zone.today,
+    retry_attempts: 0,
+    retry_base_sleep: 0.5
+  )
+    active_contracts = active_client_contracts(
+      client_id: client_id,
+      contract_id: contract_id,
+      contracts: contracts
+    )
+    responses = []
+
+    active_contracts.each do |contract|
+      client_contract_id = contract["Id"]
+      termination_date = termination_date_for(contract, today: today)
+
+      retries = 0
+      begin
+        response = terminate_contract(
+          client_id: client_id,
+          client_contract_id: client_contract_id,
+          termination_date: termination_date.to_s
+        )
+        unless termination_success?(response, client_contract_id)
+          raise ApiError, "terminatecontract failed for ClientContractId #{client_contract_id}: #{response.inspect}"
+        end
+        responses << response
+      rescue Faraday::TimeoutError, Faraday::ConnectionFailed
+        retries += 1
+        if retries <= retry_attempts
+          sleep(retry_base_sleep * (2 ** (retries - 1)))
+          retry
+        end
+        raise
+      end
+    end
+
+    {
+      active_contracts: active_contracts,
+      responses: responses
+    }
+  end
+
   def purchase_contract(client_id:,
       contract_id:,
       location_id:,
@@ -242,10 +295,48 @@ class MindbodyClient
     ).body
   end
 
+  def terminate_contract(client_id:, client_contract_id:, termination_date:)
+    request(
+      method: :post,
+      path: "client/terminatecontract",
+      body: {
+        ClientId: client_id,
+        ClientContractId: client_contract_id,
+        TerminationDate: termination_date
+      },
+      error_label: "terminatecontract"
+    ).body
+  end
+
   private
 
   def normalize_contract_name(name)
     name.to_s.downcase.gsub(/[^a-z0-9]+/, " ").squeeze(" ").strip
+  end
+
+  def termination_date_for(contract, today:)
+    start_date = parse_date(contract["StartDate"])
+    if start_date && start_date > today
+      start_date
+    else
+      today
+    end
+  end
+
+  def termination_success?(response, client_contract_id)
+    message = response.is_a?(Hash) ? response["Message"].to_s : ""
+    return false if message.empty?
+
+    pattern = /ClientContractID\s+#{Regexp.escape(client_contract_id.to_s)}\b.*terminated successfully/i
+    message.match?(pattern)
+  end
+
+  def parse_date(value)
+    return nil if value.blank?
+
+    Date.parse(value.to_s)
+  rescue ArgumentError
+    nil
   end
 
   def request(method:, path:, params: nil, body: nil, headers: nil, error_label: nil)

@@ -2,6 +2,7 @@ require "rails_helper"
 
 RSpec.describe MindbodyClient do
   let(:http_client) { instance_double(HttpClient) }
+  let(:client) { described_class.new }
 
   before do
     allow(ENV).to receive(:fetch).and_call_original
@@ -33,8 +34,6 @@ RSpec.describe MindbodyClient do
 
   it "purchases contracts without formatting a start date" do
     response = instance_double(Faraday::Response, success?: true, body: { "Sale" => { "Id" => "sale-1" } })
-    client = described_class.new
-
     expect(http_client).to receive(:post).with("sale/purchasecontract", anything).and_return(response)
 
     client.purchase_contract(
@@ -42,5 +41,71 @@ RSpec.describe MindbodyClient do
       contract_id: "contract-1",
       location_id: 1
     )
+  end
+
+  it "terminates active client contracts with date-level rules" do
+    contracts = [
+      {
+        "Id" => "26",
+        "ContractID" => "113",
+        "StartDate" => "2026-01-12T00:00:00",
+        "TerminationDate" => nil
+      },
+      {
+        "Id" => "27",
+        "ContractID" => "113",
+        "StartDate" => "2026-02-01T00:00:00",
+        "TerminationDate" => nil
+      },
+      {
+        "Id" => "28",
+        "ContractID" => "113",
+        "StartDate" => "2025-12-01T00:00:00",
+        "TerminationDate" => "2025-12-15T00:00:00"
+      }
+    ]
+
+    expect(client).to receive(:terminate_contract).with(
+      client_id: "client-1",
+      client_contract_id: "26",
+      termination_date: "2026-01-17"
+    ).and_return({ "Message" => "The ClientContractID 26 has been terminated successfully." })
+
+    expect(client).to receive(:terminate_contract).with(
+      client_id: "client-1",
+      client_contract_id: "27",
+      termination_date: "2026-02-01"
+    ).and_return({ "Message" => "The ClientContractID 27 has been terminated successfully." })
+
+    result = client.terminate_active_client_contracts!(
+      client_id: "client-1",
+      contract_id: "113",
+      contracts: contracts,
+      today: Date.new(2026, 1, 17)
+    )
+
+    expect(result[:active_contracts].map { |row| row["Id"] }).to eq([ "26", "27" ])
+  end
+
+  it "raises when terminate response does not confirm success" do
+    contracts = [
+      {
+        "Id" => "26",
+        "ContractID" => "113",
+        "StartDate" => "2026-01-12T00:00:00",
+        "TerminationDate" => nil
+      }
+    ]
+
+    expect(client).to receive(:terminate_contract).and_return({ "Message" => "failed" })
+
+    expect do
+      client.terminate_active_client_contracts!(
+        client_id: "client-1",
+        contract_id: "113",
+        contracts: contracts,
+        today: Date.new(2026, 1, 17)
+      )
+    end.to raise_error(MindbodyClient::ApiError, /terminatecontract failed/)
   end
 end
