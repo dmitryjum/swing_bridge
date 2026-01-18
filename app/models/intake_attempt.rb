@@ -10,7 +10,7 @@ class IntakeAttempt < ApplicationRecord
     member_missing: "member_missing",
     upstream_error: "upstream_error",
     failed:       "failed",
-    suspended:    "suspended"
+    terminated:  "terminated"
   }
 
   validates :email, :club, presence: true

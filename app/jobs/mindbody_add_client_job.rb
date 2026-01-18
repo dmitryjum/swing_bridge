@@ -66,22 +66,31 @@ class MindbodyAddClientJob < ApplicationJob
       duplicate_client ||= matched_duplicate
       client_id = duplicate_client && duplicate_client["Id"]
       client_contracts = []
-      has_contract = false
+      active_contracts = []
 
       if client_id.present?
         target_contract ||= resolve_target_contract!(mb)
         target_contract_id = target_contract["Id"]
         client_contracts = mb.client_contracts(client_id: client_id)
-        has_contract = client_contracts.any? { |contract| contract["ContractID"].to_s == target_contract_id.to_s }
+        active_contracts = mb.active_client_contracts(
+          client_id: client_id,
+          contract_id: target_contract_id,
+          contracts: client_contracts
+        )
 
-        unless has_contract
-          contract_purchase = purchase_target_contract!(
-            mb: mb,
+        if active_contracts.any?
+          mb.terminate_active_client_contracts!(
             client_id: client_id,
-            contract_id: target_contract_id
+            contract_id: target_contract_id,
+            contracts: client_contracts
           )
-          has_contract = true
         end
+
+        contract_purchase = purchase_target_contract!(
+          mb: mb,
+          client_id: client_id,
+          contract_id: target_contract_id
+        )
         if duplicate_client_reactivated || !password_reset_sent
           mb.send_password_reset_email(first_name:, last_name:, email:)
           password_reset_sent = true
@@ -103,6 +112,7 @@ class MindbodyAddClientJob < ApplicationJob
             "mindbody_duplicate_client_active" => duplicate_client_active,
             "mindbody_duplicate_client_reactivated" => duplicate_client_reactivated,
             "mindbody_client_id" => client_id,
+            "mindbody_contract_id" => target_contract_id,
             "mindbody_client_contracts" => client_contracts,
             "mindbody_contract_purchase" => contract_purchase,
             "mindbody_password_reset_sent" => password_reset_sent
@@ -141,6 +151,7 @@ class MindbodyAddClientJob < ApplicationJob
     if attempt
       merged_payload = (attempt.response_payload || {}).merge(result).merge(
         "mindbody_client_id" => client_id,
+        "mindbody_contract_id" => target_contract_id,
         "mindbody_contract_purchase" => contract_purchase,
         "mindbody_password_reset_sent" => password_reset_sent
       )

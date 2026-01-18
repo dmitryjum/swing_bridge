@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 namespace :contracts do
-  desc "Check ABC eligibility and suspend ineligible MindBody contracts"
+  desc "Check ABC eligibility and terminate ineligible MindBody contracts"
   task check_eligibility: :environment do
     retry_attempts = 3
     retry_base_sleep = 0.5
@@ -11,7 +11,7 @@ namespace :contracts do
     attempts_by_club = attempts.group_by(&:club)
 
     total_checked = 0
-    suspended_count = 0
+    terminated_count = 0
     error_count = 0
 
     attempts_by_club.each do |club, club_attempts|
@@ -37,6 +37,7 @@ namespace :contracts do
       total_checked += members.size
 
       mb = MindbodyClient.new
+      target_contract_id = nil
 
       members.each do |member|
         abc_id = member["memberId"]
@@ -48,28 +49,50 @@ namespace :contracts do
           next
         end
 
-        # Ineligible — suspend contract
+        # Ineligible — terminate contract
         mb_client_id = attempt.response_payload&.dig("mindbody_client_id")
-        client_contract_id = attempt.response_payload&.dig("mindbody_contract_purchase", "ClientContractId")
 
-        unless mb_client_id.present? && client_contract_id.present?
-          Rails.logger.warn("[EligibilityCheck] SKIP #{attempt.email} - missing MindBody IDs")
+        unless mb_client_id.present?
+          Rails.logger.warn("[EligibilityCheck] SKIP #{attempt.email} - missing MindBody client id")
           next
         end
 
-        # Retry with exponential backoff
-        retries = 0
+        contract_id = attempt.response_payload&.dig("mindbody_contract_purchase", "ContractId")
+
+        if contract_id.blank?
+          target_contract_id ||=
+            begin
+              mb.find_contract_by_name(
+                MindbodyAddClientJob::TARGET_CONTRACT_NAME,
+                location_id: MindbodyAddClientJob::TARGET_LOCATION_ID
+              )&.dig("Id")
+            rescue MindbodyClient::ApiError => e
+              error_count += 1
+              Rails.logger.error("[EligibilityCheck] MindBody contract lookup failed club=#{club}: #{e.message}")
+              AdminMailer.eligibility_check_failure(attempt, e).deliver_later
+              next
+            end
+          contract_id = target_contract_id
+        end
+
+        if contract_id.blank?
+          Rails.logger.warn("[EligibilityCheck] SKIP #{attempt.email} - missing MindBody contract id")
+          next
+        end
+
         begin
-          response = mb.suspend_contract(client_id: mb_client_id, client_contract_id: client_contract_id)
-          attempt.update!(status: :suspended)
-          suspended_count += 1
-          Rails.logger.info("[EligibilityCheck] SUSPENDED #{attempt.email} response=#{response.inspect}")
+          result = mb.terminate_active_client_contracts!(
+            client_id: mb_client_id,
+            contract_id: contract_id,
+            retry_attempts: retry_attempts,
+            retry_base_sleep: retry_base_sleep
+          )
+          attempt.update!(status: :terminated)
+          terminated_count += 1
+          Rails.logger.info(
+            "[EligibilityCheck] TERMINATED #{attempt.email} terminated=#{result[:active_contracts].size}"
+          )
         rescue Faraday::TimeoutError, Faraday::ConnectionFailed => e
-          retries += 1
-          if retries <= retry_attempts
-            sleep(retry_base_sleep * (2 ** (retries - 1)))
-            retry
-          end
           error_count += 1
           Rails.logger.error("[EligibilityCheck] TIMEOUT #{attempt.email} after #{retry_attempts} retries: #{e.message}")
           AdminMailer.eligibility_check_failure(attempt, e).deliver_later
@@ -83,6 +106,6 @@ namespace :contracts do
       end
     end
 
-    Rails.logger.info("[EligibilityCheck] Complete: checked=#{total_checked} suspended=#{suspended_count} errors=#{error_count}")
+    Rails.logger.info("[EligibilityCheck] Complete: checked=#{total_checked} terminated=#{terminated_count} errors=#{error_count}")
   end
 end

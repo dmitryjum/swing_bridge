@@ -46,6 +46,10 @@ RSpec.describe MindbodyAddClientJob, type: :job do
     allow(mindbody_client).to receive(:find_contract_by_name).and_return(target_contract)
     allow(mindbody_client).to receive(:purchase_contract).and_return(contract_purchase_response)
     allow(mindbody_client).to receive(:client_contracts).and_return([])
+    allow(mindbody_client).to receive(:active_client_contracts).and_return([])
+    allow(mindbody_client).to receive(:terminate_active_client_contracts!).and_return(
+      { active_contracts: [], responses: [] }
+    )
   end
 
   describe "#perform" do
@@ -98,6 +102,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
           "abc_member_id" => "abc-123",
           "Client" => { "Id" => "abc" },
           "mindbody_client_id" => "abc",
+          "mindbody_contract_id" => contract_id,
           "mindbody_contract_purchase" => contract_purchase_response,
           "mindbody_password_reset_sent" => true
         }
@@ -226,6 +231,7 @@ RSpec.describe MindbodyAddClientJob, type: :job do
           "mindbody_duplicate_client" => { "Id" => "def", "Active" => false },
           "mindbody_duplicate_client_reactivated" => true,
           "mindbody_client_id" => "def",
+          "mindbody_contract_id" => contract_id,
           "mindbody_client_contracts" => [],
           "mindbody_contract_purchase" => contract_purchase_response,
           "mindbody_password_reset_sent" => true
@@ -276,13 +282,14 @@ RSpec.describe MindbodyAddClientJob, type: :job do
             "mindbody_duplicate_client_active" => true,
             "mindbody_duplicate_client_reactivated" => false,
             "mindbody_client_id" => "def",
+            "mindbody_contract_id" => contract_id,
             "mindbody_client_contracts" => [],
             "mindbody_contract_purchase" => contract_purchase_response,
             "mindbody_password_reset_sent" => true
           )
         end
 
-        it "skips update" do
+        it "terminates existing contracts before purchasing" do
           attempt = IntakeAttempt.create!(
             club: "1552",
             email: "jane@example.com",
@@ -293,8 +300,24 @@ RSpec.describe MindbodyAddClientJob, type: :job do
           expect(mindbody_client).not_to receive(:ensure_required_client_fields!)
           expect(mindbody_client).not_to receive(:add_client)
           expect(mindbody_client).to receive(:find_contract_by_name).with("Swing Membership (Gold's Member NEW1)", location_id: 1).and_return(target_contract)
-          expect(mindbody_client).to receive(:client_contracts).with(client_id: "def").and_return([ { "ContractID" => contract_id } ])
-          expect(mindbody_client).not_to receive(:purchase_contract)
+          existing_contracts = [ { "Id" => "cc-1", "ContractID" => contract_id, "TerminationDate" => nil } ]
+          expect(mindbody_client).to receive(:client_contracts).with(client_id: "def").and_return(existing_contracts)
+          expect(mindbody_client).to receive(:active_client_contracts).with(
+            client_id: "def",
+            contract_id: contract_id,
+            contracts: existing_contracts
+          ).and_return(existing_contracts)
+          expect(mindbody_client).to receive(:terminate_active_client_contracts!).with(
+            client_id: "def",
+            contract_id: contract_id,
+            contracts: existing_contracts
+          ).and_return({ active_contracts: existing_contracts, responses: [] })
+          expect(mindbody_client).to receive(:purchase_contract).with(
+            client_id: "def",
+            contract_id: target_contract["Id"],
+            location_id: 1,
+            send_notifications: false
+          ).and_return(contract_purchase_response)
           expect(mindbody_client).to receive(:send_password_reset_email).with(
             first_name: "Jane",
             last_name:  "Doe",
@@ -311,8 +334,9 @@ RSpec.describe MindbodyAddClientJob, type: :job do
             "mindbody_duplicate_client_active" => true,
             "mindbody_duplicate_client_reactivated" => false,
             "mindbody_client_id" => "def",
-            "mindbody_client_contracts" => [ { "ContractID" => contract_id } ],
-            "mindbody_contract_purchase" => nil,
+            "mindbody_contract_id" => contract_id,
+            "mindbody_client_contracts" => existing_contracts,
+            "mindbody_contract_purchase" => contract_purchase_response,
             "mindbody_password_reset_sent" => true
           )
         end
