@@ -242,12 +242,25 @@ class MindbodyClient
     ).body
   end
 
-  def suspend_contract(client_id:, client_contract_id:)
+  # def suspend_contract(client_id:, client_contract_id:)
+  #   request(
+  #     method: :post,
+  #     path: "client/suspendcontract",
+  #     body: { ClientId: client_id, ClientContractId: client_contract_id },
+  #     error_label: "suspendcontract"
+  #   ).body
+  # end
+
+  def terminate_contract(client_id:, client_contract_id:)
     request(
       method: :post,
-      path: "client/suspendcontract",
-      body: { ClientId: client_id, ClientContractId: client_contract_id },
-      error_label: "suspendcontract"
+      path: "client/terminatecontract",
+      body: {
+        ClientId: client_id,
+        ClientContractId: client_contract_id,
+        TerminationDate: Time.zone.today.iso8601
+      },
+      error_label: "terminatecontract"
     ).body
   end
 
