@@ -38,7 +38,7 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
 
 2) **MindBody job** (`MindbodyAddClientJob`)
    - Validates required fields against `MindbodyClient#required_client_fields`.
-   - Dedupes via `clientduplicates`; if a matching client exists, fetches details, reactivates inactive accounts, applies contract rules (see Contract handling rules), and records duplicate metadata. Optionally triggers a password reset when reactivating.
+   - Dedupes via `clientduplicates`; if a matching client exists, fetches details, reactivates inactive accounts, applies contract rules (see Contract handling rules), and records duplicate metadata. Missing contract dates are treated as active and logged.
    - If no duplicate, calls `addclient`, then purchases the contract and triggers password reset email.
    - Updates `IntakeAttempt` to `mb_success` with MindBody response/metadata. On `AuthError`/`ApiError`, sets `mb_failed`, emails admins, and re-raises so Solid Queue can retry. Unexpected errors set `failed` and notify admins.
 
@@ -67,14 +67,19 @@ MindBody "purchase contract" creates multiple client contract purchase rows for 
 
 Definitions:
 - Contract template: MindBody contract definition identified by `ContractID`.
-- Client contract purchase row: per-client row in `clientcontracts` with `Id`, `ContractID`, `StartDate`, `TerminationDate`.
+- Client contract purchase row: per-client row in `clientcontracts` with `Id`, `ContractID`, `StartDate`, `EndDate`, `TerminationDate`.
 - Active row: `TerminationDate` is nil.
+- Current segment: `StartDate <= today <= EndDate` in the app time zone.
 
 Rules:
 - A client "has the contract" if at least one active row exists for the target `ContractID`.
-- When we need the contract to be active immediately, we use a clear-slate approach:
-  - If any active rows exist for the target `ContractID`, terminate all active rows first, then purchase again.
-  - If no active rows exist, purchase directly.
+- Missing `StartDate`/`EndDate` on active rows is treated as active and safe; we log a warning and skip purchase to avoid breaking a valid contract.
+- Duplicate handling in `MindbodyAddClientJob` uses the following decision flow:
+  - If any active row is current, do nothing (client already covered).
+  - If a current row exists but is terminated, terminate any remaining active rows and purchase a new contract.
+  - If no current row exists and there are active future rows, terminate them and purchase a new contract (avoid waiting).
+  - If only active past rows exist, do nothing (client is still marked active in MindBody).
+  - If there are no active rows, purchase a new contract.
 - Termination is idempotent: rows with `TerminationDate` set are skipped.
 - Termination date selection (date-level comparison, site time zone):
   - If `StartDate` is in the future, terminate with `TerminationDate = StartDate` (date portion).
@@ -82,9 +87,33 @@ Rules:
 - Each termination call must confirm success from the API response message for the specific `ClientContractID`. If not confirmed, we treat it as an error and do not proceed to purchase.
 
 Where this logic applies:
-- `MindbodyAddClientJob`: handles duplicates and purchase decisions; always enforces clear-slate before purchasing.
+- `MindbodyAddClientJob`: handles duplicates and purchase decisions; uses the contract decision flow above.
 - `contracts:check_eligibility`: terminates all active rows when a client becomes ineligible; idempotent on re-run.
 - ContractId source: the eligibility task first reads `response_payload.mindbody_contract_id` (or `mindbody_contract_purchase.ContractId/ContractID`) and only falls back to a live MindBody lookup if missing.
+
+Examples (duplicate-client contract decisions):
+- Active current segment with valid dates -> skip purchase.
+- Current segment is terminated -> terminate any active rows, then purchase.
+- Only future active segment -> terminate future rows, then purchase now.
+- Only past active segment -> skip purchase.
+- All rows terminated -> purchase.
+- Active row missing StartDate or EndDate -> log warning, skip purchase.
+
+---
+
+## 🧹 Eligibility termination task (`contracts:check_eligibility`)
+
+High-level flow:
+- Loads all `IntakeAttempt` rows with `status: mb_success` and groups them by `club`.
+- For each club, calls ABC once with all member ids (`get_members_by_ids`).
+- For each member:
+  - If still eligible, do nothing.
+  - If ineligible:
+    - Resolve `mindbody_client_id` from `response_payload`.
+    - Resolve `contract_id` from `response_payload` (or via `find_contract_by_name` as a fallback).
+    - Call `terminate_active_client_contracts!` (with retry/backoff) and mark the attempt `terminated`.
+    - Sleep `ELIGIBILITY_SUSPEND_DELAY_MS` to avoid hammering the MindBody API.
+- Any ABC or MindBody errors are logged and reported via `AdminMailer.eligibility_check_failure`.
 
 ---
 
