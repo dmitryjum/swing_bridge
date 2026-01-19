@@ -66,31 +66,36 @@ class MindbodyAddClientJob < ApplicationJob
       duplicate_client ||= matched_duplicate
       client_id = duplicate_client && duplicate_client["Id"]
       client_contracts = []
-      active_contracts = []
 
       if client_id.present?
         target_contract ||= resolve_target_contract!(mb)
         target_contract_id = target_contract["Id"]
         client_contracts = mb.client_contracts(client_id: client_id)
-        active_contracts = mb.active_client_contracts(
+        target_contracts = contracts_for(client_contracts, target_contract_id)
+        action = contract_action_for(
+          contracts: target_contracts,
           client_id: client_id,
-          contract_id: target_contract_id,
-          contracts: client_contracts
+          today: mindbody_today
         )
 
-        if active_contracts.any?
+        if action == :terminate_and_purchase
           mb.terminate_active_client_contracts!(
             client_id: client_id,
             contract_id: target_contract_id,
             contracts: client_contracts
           )
+          contract_purchase = purchase_target_contract!(
+            mb: mb,
+            client_id: client_id,
+            contract_id: target_contract_id
+          )
+        elsif action == :purchase
+          contract_purchase = purchase_target_contract!(
+            mb: mb,
+            client_id: client_id,
+            contract_id: target_contract_id
+          )
         end
-
-        contract_purchase = purchase_target_contract!(
-          mb: mb,
-          client_id: client_id,
-          contract_id: target_contract_id
-        )
         if duplicate_client_reactivated || !password_reset_sent
           mb.send_password_reset_email(first_name:, last_name:, email:)
           password_reset_sent = true
@@ -191,5 +196,88 @@ class MindbodyAddClientJob < ApplicationJob
       location_id: TARGET_LOCATION_ID,
       send_notifications: false
     )
+  end
+
+  def contracts_for(contracts, contract_id)
+    Array(contracts).select { |contract| contract["ContractID"].to_s == contract_id.to_s }
+  end
+
+  def contract_action_for(contracts:, client_id:, today:)
+    segments = Array(contracts)
+    return :purchase if segments.empty? # no contracts
+
+    active_segments = segments.select { |contract| contract["TerminationDate"].blank? }
+    terminated_segments = segments - active_segments
+
+    if active_segments.any? { |contract| missing_dates?(contract) } # missing dates on active segments
+      log_missing_dates(active_segments, client_id: client_id)
+      return :skip # treat as active, avoid purchase
+    end
+
+    # current segment is active; do nothing
+    return :skip if active_segments.any? { |contract| current_segment?(contract, today: today) }
+
+    # current segment exists but is terminated; terminate any actives and repurchase
+    if terminated_segments.any? { |contract| current_segment?(contract, today: today) }
+      return :terminate_and_purchase
+    end
+
+    # no current segment; if future segments are active, terminate them and repurchase
+    if active_segments.any? { |contract| future_segment?(contract, today: today) }
+      return :terminate_and_purchase
+    end
+
+    return :skip if active_segments.any? # only active past segments
+
+    :purchase # contracts exist, but all are terminated
+  end
+
+  def missing_dates?(contract)
+    start_date, end_date = contract_dates(contract)
+    start_date.nil? || end_date.nil?
+  end
+
+  def current_segment?(contract, today:)
+    start_date, end_date = contract_dates(contract)
+    return false if start_date.nil? || end_date.nil?
+
+    start_date <= today && end_date >= today
+  end
+
+  def future_segment?(contract, today:)
+    start_date, _end_date = contract_dates(contract)
+    return false if start_date.nil?
+
+    start_date > today
+  end
+
+  def contract_dates(contract)
+    [ parse_contract_date(contract["StartDate"]), parse_contract_date(contract["EndDate"]) ]
+  end
+
+  def parse_contract_date(value)
+    return nil if value.blank?
+
+    Date.parse(value.to_s)
+  rescue ArgumentError
+    nil
+  end
+
+  def log_missing_dates(contracts, client_id:)
+    contracts.each do |contract|
+      start_date = contract["StartDate"]
+      end_date = contract["EndDate"]
+      next if start_date.present? && end_date.present?
+
+      Rails.logger.warn(
+        "[MindbodyAddClientJob] Missing contract dates for ClientContractId #{contract["Id"]} " \
+        "(client_id=#{client_id}, start_date=#{start_date.inspect}, end_date=#{end_date.inspect}); " \
+        "treating as active and skipping purchase"
+      )
+    end
+  end
+
+  def mindbody_today
+    Time.zone.today
   end
 end

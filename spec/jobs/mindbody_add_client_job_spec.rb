@@ -300,18 +300,177 @@ RSpec.describe MindbodyAddClientJob, type: :job do
           expect(mindbody_client).not_to receive(:ensure_required_client_fields!)
           expect(mindbody_client).not_to receive(:add_client)
           expect(mindbody_client).to receive(:find_contract_by_name).with("Swing Membership (Gold's Member NEW1)", location_id: 1).and_return(target_contract)
-          existing_contracts = [ { "Id" => "cc-1", "ContractID" => contract_id, "TerminationDate" => nil } ]
+          today = Time.zone.today
+          existing_contracts = [
+            {
+              "Id" => "cc-1",
+              "ContractID" => contract_id,
+              "TerminationDate" => nil,
+              "StartDate" => (today + 1).to_s,
+              "EndDate" => (today + 61).to_s
+            }
+          ]
           expect(mindbody_client).to receive(:client_contracts).with(client_id: "def").and_return(existing_contracts)
-          expect(mindbody_client).to receive(:active_client_contracts).with(
-            client_id: "def",
-            contract_id: contract_id,
-            contracts: existing_contracts
-          ).and_return(existing_contracts)
           expect(mindbody_client).to receive(:terminate_active_client_contracts!).with(
             client_id: "def",
             contract_id: contract_id,
             contracts: existing_contracts
           ).and_return({ active_contracts: existing_contracts, responses: [] })
+          expect(mindbody_client).to receive(:purchase_contract).with(
+            client_id: "def",
+            contract_id: target_contract["Id"],
+            location_id: 1,
+            send_notifications: false
+          ).and_return(contract_purchase_response)
+          expect(mindbody_client).to receive(:send_password_reset_email).with(
+            first_name: "Jane",
+            last_name:  "Doe",
+            email:      "jane@example.com"
+          ).and_return(nil)
+          expect(mindbody_client).to receive(:client_complete_info).with(client_id: "def").and_return(client_complete_info_response)
+          expect(mindbody_client).not_to receive(:update_client)
+
+          described_class.perform_now(intake_attempt_id: attempt.id, **payload)
+
+          attempt.reload
+          expect(attempt.status).to eq("mb_success")
+          expect(attempt.response_payload).to include(
+            "mindbody_duplicate_client_active" => true,
+            "mindbody_duplicate_client_reactivated" => false,
+            "mindbody_client_id" => "def",
+            "mindbody_contract_id" => contract_id,
+            "mindbody_client_contracts" => existing_contracts,
+            "mindbody_contract_purchase" => contract_purchase_response,
+            "mindbody_password_reset_sent" => true
+          )
+        end
+
+        it "skips purchasing when the current segment is active" do
+          attempt = IntakeAttempt.create!(
+            club: "1552",
+            email: "jane@example.com",
+            status: "enqueued",
+            request_payload: {}
+          )
+
+          today = Time.zone.today
+          existing_contracts = [
+            {
+              "Id" => "cc-1",
+              "ContractID" => contract_id,
+              "TerminationDate" => nil,
+              "StartDate" => (today - 7).to_s,
+              "EndDate" => (today + 21).to_s
+            }
+          ]
+
+          expect(mindbody_client).not_to receive(:ensure_required_client_fields!)
+          expect(mindbody_client).not_to receive(:add_client)
+          expect(mindbody_client).to receive(:find_contract_by_name).with("Swing Membership (Gold's Member NEW1)", location_id: 1).and_return(target_contract)
+          expect(mindbody_client).to receive(:client_contracts).with(client_id: "def").and_return(existing_contracts)
+          expect(mindbody_client).not_to receive(:terminate_active_client_contracts!)
+          expect(mindbody_client).not_to receive(:purchase_contract)
+          expect(mindbody_client).to receive(:send_password_reset_email).with(
+            first_name: "Jane",
+            last_name:  "Doe",
+            email:      "jane@example.com"
+          ).and_return(nil)
+          expect(mindbody_client).to receive(:client_complete_info).with(client_id: "def").and_return(client_complete_info_response)
+          expect(mindbody_client).not_to receive(:update_client)
+
+          described_class.perform_now(intake_attempt_id: attempt.id, **payload)
+
+          attempt.reload
+          expect(attempt.status).to eq("mb_success")
+          expect(attempt.response_payload).to include(
+            "mindbody_duplicate_client_active" => true,
+            "mindbody_duplicate_client_reactivated" => false,
+            "mindbody_client_id" => "def",
+            "mindbody_contract_id" => contract_id,
+            "mindbody_client_contracts" => existing_contracts,
+            "mindbody_contract_purchase" => nil,
+            "mindbody_password_reset_sent" => true
+          )
+        end
+
+        it "skips purchasing when an active contract is missing dates" do
+          attempt = IntakeAttempt.create!(
+            club: "1552",
+            email: "jane@example.com",
+            status: "enqueued",
+            request_payload: {}
+          )
+
+          existing_contracts = [
+            {
+              "Id" => "cc-1",
+              "ContractID" => contract_id,
+              "TerminationDate" => nil,
+              "StartDate" => nil,
+              "EndDate" => nil
+            }
+          ]
+
+          expect(mindbody_client).not_to receive(:ensure_required_client_fields!)
+          expect(mindbody_client).not_to receive(:add_client)
+          expect(mindbody_client).to receive(:find_contract_by_name).with("Swing Membership (Gold's Member NEW1)", location_id: 1).and_return(target_contract)
+          expect(mindbody_client).to receive(:client_contracts).with(client_id: "def").and_return(existing_contracts)
+          expect(mindbody_client).not_to receive(:terminate_active_client_contracts!)
+          expect(mindbody_client).not_to receive(:purchase_contract)
+          expect(mindbody_client).to receive(:send_password_reset_email).with(
+            first_name: "Jane",
+            last_name:  "Doe",
+            email:      "jane@example.com"
+          ).and_return(nil)
+          expect(mindbody_client).to receive(:client_complete_info).with(client_id: "def").and_return(client_complete_info_response)
+          expect(mindbody_client).not_to receive(:update_client)
+          expect(Rails.logger).to receive(:warn).with(
+            /\[MindbodyAddClientJob\] Missing contract dates for ClientContractId cc-1/
+          )
+
+          described_class.perform_now(intake_attempt_id: attempt.id, **payload)
+
+          attempt.reload
+          expect(attempt.status).to eq("mb_success")
+          expect(attempt.response_payload).to include(
+            "mindbody_duplicate_client_active" => true,
+            "mindbody_duplicate_client_reactivated" => false,
+            "mindbody_client_id" => "def",
+            "mindbody_contract_id" => contract_id,
+            "mindbody_client_contracts" => existing_contracts,
+            "mindbody_contract_purchase" => nil,
+            "mindbody_password_reset_sent" => true
+          )
+        end
+
+        it "repurchases when the current segment is terminated" do
+          attempt = IntakeAttempt.create!(
+            club: "1552",
+            email: "jane@example.com",
+            status: "enqueued",
+            request_payload: {}
+          )
+
+          today = Time.zone.today
+          existing_contracts = [
+            {
+              "Id" => "cc-1",
+              "ContractID" => contract_id,
+              "TerminationDate" => today.to_s,
+              "StartDate" => (today - 7).to_s,
+              "EndDate" => (today + 21).to_s
+            }
+          ]
+
+          expect(mindbody_client).not_to receive(:ensure_required_client_fields!)
+          expect(mindbody_client).not_to receive(:add_client)
+          expect(mindbody_client).to receive(:find_contract_by_name).with("Swing Membership (Gold's Member NEW1)", location_id: 1).and_return(target_contract)
+          expect(mindbody_client).to receive(:client_contracts).with(client_id: "def").and_return(existing_contracts)
+          expect(mindbody_client).to receive(:terminate_active_client_contracts!).with(
+            client_id: "def",
+            contract_id: contract_id,
+            contracts: existing_contracts
+          ).and_return({ active_contracts: [], responses: [] })
           expect(mindbody_client).to receive(:purchase_contract).with(
             client_id: "def",
             contract_id: target_contract["Id"],
