@@ -1,0 +1,16 @@
+<%= link_to admin_intake_attempt_path(@attempt), 
+            data: { turbo_frame: "details", action: "click->admin--list#select", admin__list_target: "item" },
+            class: container_classes do %>
+  <div class="flex items-start justify-between">
+    <div class="flex-1 min-w-0 pr-4">
+      <p class="text-[13px] font-semibold text-slate-900 truncate tracking-tight"><%= @attempt.email %></p>
+      <div class="flex items-center mt-1 space-x-2">
+        <span class="text-[11px] font-medium text-slate-500 uppercase tracking-wider"><%= @attempt.club %></span>
+      </div>
+    </div>
+    <div class="flex flex-col items-end space-y-2 flex-shrink-0">
+      <time class="text-[10px] font-bold text-slate-400 font-mono"><%= formatted_time %></time>
+      <span class="w-2.5 h-2.5 rounded-full <%= status_dot %> shadow-[0_0_10px_rgba(0,0,0,0.1)] ring-2 ring-white"></span>
+    </div>
+  </div>
+<% end %>

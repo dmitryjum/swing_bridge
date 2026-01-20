@@ -11,4 +11,11 @@ Rails.application.routes.draw do
       resources :intakes, only: :create
     end
   end
+
+  namespace :admin do
+    resources :intake_attempts, only: [ :index, :show ] do
+      post :retry, on: :member
+    end
+    root to: "intake_attempts#index"
+  end
 end

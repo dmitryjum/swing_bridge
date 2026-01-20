@@ -42,6 +42,10 @@ gem "oj", "~> 3.16"
 gem "dotenv-rails", "~> 3.2"
 gem "rack-attack", "~> 6.7"
 gem "mission_control-jobs"
+gem "turbo-rails"
+gem "stimulus-rails"
+gem "importmap-rails"
+gem "view_component"
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem

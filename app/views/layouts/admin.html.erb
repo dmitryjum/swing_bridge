@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Swing Bridge Admin</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <%= stylesheet_link_tag "admin", "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+    
+    <meta name="turbo-refresh-method" content="morph">
+    <meta name="turbo-refresh-scroll" content="preserve">
+  </head>
+
+  <body class="bg-slate-50 font-fira-sans antialiased overflow-hidden h-screen flex flex-col">
+    <!-- Top Global Header -->
+    <header class="h-14 bg-[#1E293B] flex items-center justify-between px-6 flex-shrink-0 z-30 shadow-lg">
+      <div class="flex items-center space-x-4">
+        <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-fira-code font-bold text-white text-lg">SB</div>
+        <h1 class="text-white font-bold text-sm tracking-tight uppercase">Swing Bridge <span class="text-slate-500 font-medium ml-1">Admin</span></h1>
+      </div>
+
+      <div class="flex-1 max-w-xl px-12" data-controller="admin--search">
+        <%= form_with url: admin_intake_attempts_path, method: :get, 
+                      data: { admin__search_target: "form", turbo_frame: "attempts_list" }, 
+                      class: "relative" do |f| %>
+          <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+            <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <%= f.text_field :query, 
+              placeholder: "Search email, status, or raw payload...", 
+              value: params[:query],
+              data: { action: "input->admin--search#search", admin__search_target: "input" },
+              class: "w-full bg-slate-800/50 border-none text-slate-100 text-xs py-2 pl-10 pr-4 rounded-lg focus:ring-2 focus:ring-blue-500 transition-all placeholder-slate-500" %>
+        <% end %>
+      </div>
+
+      <div class="flex items-center space-x-6">
+        <div class="flex items-center space-x-2">
+          <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Live Engine</span>
+        </div>
+        <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-white">AD</div>
+      </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden">
+      <!-- Master List Panel -->
+      <aside class="w-80 border-r border-slate-200 bg-white flex flex-col overflow-hidden z-20 shadow-xl" data-controller="admin--list" data-admin--list-active-class="bg-blue-50/50 border-r-4 border-r-blue-600">
+        <div class="p-4 border-b border-slate-100 bg-slate-50/30 flex items-center justify-between">
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Intake Attempts</span>
+          <span class="px-2 py-0.5 bg-slate-200 text-slate-600 rounded-md text-[10px] font-bold"><%= IntakeAttempt.count %></span>
+        </div>
+        
+        <%= turbo_frame_tag "attempts_list", class: "flex-1 overflow-y-auto scrollbar-thin p-3" do %>
+          <%= render "admin/intake_attempts/list", attempts: @attempts %>
+        <% end %>
+      </aside>
+
+      <!-- Detail Panel -->
+      <section class="flex-1 overflow-y-auto relative bg-[#F8FAFC]">
+        <%= turbo_frame_tag "details" do %>
+          <%= yield %>
+        <% end %>
+      </section>
+    </main>
+    
+    <% if flash.any? %>
+      <div class="fixed bottom-6 right-6 z-50 animate-bounce">
+        <% flash.each do |type, msg| %>
+          <div class="bg-slate-900 text-white px-6 py-3 rounded-xl shadow-2xl border border-slate-800 flex items-center space-x-3">
+            <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+            <span class="text-xs font-bold uppercase tracking-tight"><%= msg %></span>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  </body>
+</html>

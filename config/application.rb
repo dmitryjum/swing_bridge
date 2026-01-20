@@ -40,7 +40,13 @@ module SwingBridge
     # Only loads a smaller set of middleware suitable for API only apps.
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
-    config.api_only = true
+    # This application is configured as full-stack to support the Admin Panel UI.
+    config.api_only = false
+
+    # Enable middleware for sessions and cookies (needed for Admin UI / Flash)
+    config.middleware.use ActionDispatch::Cookies
+    config.middleware.use ActionDispatch::Session::CookieStore, key: "_swing_bridge_session"
+    config.middleware.use ActionDispatch::Flash
 
     # Use Solid Queue for background jobs
     config.active_job.queue_adapter = :solid_queue

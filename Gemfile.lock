@@ -423,6 +423,10 @@ GEM
     unicode-emoji (4.1.0)
     uri (1.1.1)
     useragent (0.16.11)
+    view_component (4.2.0)
+      actionview (>= 7.1.0)
+      activesupport (>= 7.1.0)
+      concurrent-ruby (~> 1)
     webmock (3.26.1)
       addressable (>= 2.8.0)
       crack (>= 0.3.2)
@@ -457,6 +461,7 @@ DEPENDENCIES
   faraday-retry (~> 2.4)
   ffaker
   image_processing (~> 1.2)
+  importmap-rails
   kamal
   mission_control-jobs
   oj (~> 3.16)
@@ -473,8 +478,11 @@ DEPENDENCIES
   solid_cable
   solid_cache
   solid_queue
+  stimulus-rails
   thruster
+  turbo-rails
   tzinfo-data
+  view_component
   webmock (~> 3.26)
 
 RUBY VERSION
