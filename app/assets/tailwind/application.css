@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 @import url("https://fonts.googleapis.com/css2?family=Fira+Sans:wght@300;400;500;600;700&family=Fira+Code:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
@@ -12,3 +13,6 @@
     font-family: "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace;
   }
 }
+=======
+@import "tailwindcss";
+>>>>>>> 80358b8 (chore: add hotwire, tailwind, and view component)
