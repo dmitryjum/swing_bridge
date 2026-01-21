@@ -1,0 +1,13 @@
+<div class="flex flex-col gap-1 px-3 py-2 rounded-lg border border-slate-200 <%= @selected ? "bg-white shadow-sm" : "bg-slate-50" %>">
+  <div class="flex items-center justify-between gap-2">
+    <%= render Admin::StatusPillComponent.new(status: @attempt.status) %>
+    <span class="text-xs text-slate-500"><%= @attempt.created_at.strftime("%Y-%m-%d %H:%M") %></span>
+  </div>
+  <div class="text-sm font-medium text-slate-900 truncate"><%= @attempt.email %></div>
+  <div class="text-xs text-slate-500 font-mono truncate">
+    club <%= @attempt.club %> • id <%= @attempt.id %>
+  </div>
+  <% if @attempt.error_message.present? %>
+    <div class="text-xs text-rose-700 truncate"><%= @attempt.error_message %></div>
+  <% end %>
+</div>

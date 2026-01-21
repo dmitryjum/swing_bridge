@@ -1,0 +1,22 @@
+<div class="flex items-center justify-between mb-2">
+  <div class="text-sm text-slate-600"><%= total_count %> total</div>
+  <div class="text-xs text-slate-500">Page <%= params[:page].presence || 1 %></div>
+</div>
+
+<div class="space-y-2 max-h-[70vh] overflow-auto pr-1">
+  <% attempts.each do |attempt| %>
+    <%= link_to admin_intake_attempt_path(attempt, request.query_parameters), data: { turbo_frame: "attempt_detail" }, class: "block" do %>
+      <%= render Admin::AttemptRowComponent.new(attempt: attempt, selected: selected&.id == attempt.id) %>
+    <% end %>
+  <% end %>
+</div>
+
+<div class="mt-4 flex items-center justify-between">
+  <% if (params[:page].to_i) > 1 %>
+    <%= link_to "Prev", admin_intake_attempts_path(request.query_parameters.merge(page: params[:page].to_i - 1)), data: { turbo_frame: "attempts_list" }, class: "text-sm text-blue-600" %>
+  <% end %>
+
+  <% if attempts.size == IntakeAttemptSearch::DEFAULT_PER_PAGE %>
+    <%= link_to "Next", admin_intake_attempts_path(request.query_parameters.merge(page: (params[:page].presence || 1).to_i + 1)), data: { turbo_frame: "attempts_list" }, class: "text-sm text-blue-600" %>
+  <% end %>
+</div>

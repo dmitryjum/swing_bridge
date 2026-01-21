@@ -1,0 +1,14 @@
+<form action="<%= admin_intake_attempts_path %>" method="get" data-controller="search" data-turbo-frame="attempts_list" class="mt-4 flex flex-wrap items-center gap-3">
+  <input type="search" name="q" value="<%= params[:q] %>" placeholder="Search email, status, error, payload..." class="w-80 rounded-lg border border-slate-200 px-3 py-2 text-sm" data-search-target="input" data-action="input->search#submit">
+
+  <select name="status" class="rounded-lg border border-slate-200 px-3 py-2 text-sm">
+    <option value="">All statuses</option>
+    <% IntakeAttempt.statuses.keys.each do |status| %>
+      <option value="<%= status %>" <%= "selected" if params[:status] == status %>><%= status %></option>
+    <% end %>
+  </select>
+
+  <input type="text" name="club" value="<%= params[:club] %>" placeholder="Club" class="w-28 rounded-lg border border-slate-200 px-3 py-2 text-sm">
+
+  <input type="hidden" name="page" value="1">
+</form>

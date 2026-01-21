@@ -1,0 +1,7 @@
+<section class="rounded-xl border border-slate-200 bg-white">
+  <header class="flex items-center justify-between px-4 py-2 border-b border-slate-100">
+    <h3 class="text-sm font-semibold text-slate-700"><%= @title %></h3>
+    <button type="button" data-controller="clipboard" data-action="click->clipboard#copy" data-clipboard-text-value="<%= pretty_json %>" class="text-xs text-blue-600 hover:text-blue-800">Copy</button>
+  </header>
+  <pre class="p-4 text-xs font-mono text-slate-800 overflow-auto"><%= pretty_json %></pre>
+</section>

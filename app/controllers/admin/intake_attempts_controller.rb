@@ -8,5 +8,6 @@ class Admin::IntakeAttemptsController < Admin::BaseController
 
   def show
     @attempt = IntakeAttempt.find(params[:id])
+    render partial: "detail", locals: { attempt: @attempt }
   end
 end
