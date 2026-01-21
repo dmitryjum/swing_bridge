@@ -1,10 +1,24 @@
 require "rails_helper"
 
 RSpec.describe "Admin IntakeAttempts", type: :request do
-  it "renders index" do
+  let(:auth) do
+    ActionController::HttpAuthentication::Basic.encode_credentials("admin", "secret")
+  end
+
+  before do
+    allow(Rails.application.credentials).to receive(:dig).with(:admin, :http_basic_auth_user).and_return("admin")
+    allow(Rails.application.credentials).to receive(:dig).with(:admin, :http_basic_auth_password).and_return("secret")
+  end
+
+  it "requires basic auth" do
+    get "/admin/intake_attempts"
+    expect(response).to have_http_status(:unauthorized)
+  end
+
+  it "renders index with auth" do
     IntakeAttempt.create!(club: "1", email: "ok@example.com", status: "pending")
 
-    get "/admin/intake_attempts"
+    get "/admin/intake_attempts", headers: { "HTTP_AUTHORIZATION" => auth }
 
     expect(response).to have_http_status(:ok)
     expect(response.body).to include("Intake Attempts")
