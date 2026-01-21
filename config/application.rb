@@ -32,6 +32,7 @@ module SwingBridge
     config.eager_load_paths << Rails.root.join("app/queries")
     config.autoload_paths << Rails.root.join("app/components")
     config.eager_load_paths << Rails.root.join("app/components")
+    config.assets.paths << Rails.root.join("app/assets/builds")
 
     # Configuration for the application, engines, and railties goes here.
     #
