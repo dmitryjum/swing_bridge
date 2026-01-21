@@ -65,3 +65,8 @@ group :development, :test do
 end
 
 gem "propshaft", "~> 1.3"
+gem "importmap-rails"
+gem "stimulus-rails"
+gem "tailwindcss-rails"
+gem "turbo-rails"
+gem "view_component"
