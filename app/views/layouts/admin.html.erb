@@ -1,5 +1,17 @@
-<%= render layout: "application" do %>
-  <div class="min-h-screen bg-slate-50 text-slate-900">
-    <%= yield %>
-  </div>
-<% end %>
+<!doctype html>
+<html>
+  <head>
+    <title>SwingBridge Admin</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+
+    <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+  </head>
+  <body class="bg-slate-50 text-slate-900">
+    <div class="min-h-screen bg-slate-50 text-slate-900">
+      <%= yield %>
+    </div>
+  </body>
+</html>
