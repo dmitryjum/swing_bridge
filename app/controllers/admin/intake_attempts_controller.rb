@@ -8,6 +8,10 @@ class Admin::IntakeAttemptsController < Admin::BaseController
 
   def show
     @attempt = IntakeAttempt.find(params[:id])
-    render partial: "detail", locals: { attempt: @attempt }
+    if turbo_frame_request?
+      render partial: "detail", locals: { attempt: @attempt }
+    else
+      redirect_to admin_intake_attempts_path(id: @attempt.id)
+    end
   end
 end

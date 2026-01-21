@@ -27,6 +27,19 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
 
 ---
 
+## 🧭 Admin panel (Intake Attempts)
+
+- UI at `/admin/intake_attempts` (two-pane list + detail).
+- Search includes `email`, `status`, `error_message`, `request_payload`, and `response_payload` via a GIN tsvector index.
+- Basic Auth credentials live in `config/credentials.yml.enc`:
+  ```yaml
+  admin:
+    http_basic_auth_user: "your-user"
+    http_basic_auth_password: "your-password"
+  ```
+
+---
+
 ## 🚧 Architecture & flow
 
 1) **Intake** (`Api::V1::IntakesController#create`)
