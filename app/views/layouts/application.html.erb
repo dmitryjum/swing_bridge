@@ -6,9 +6,7 @@
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
-    <% unless Rails.env.test? %>
-      <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
-    <% end %>
+    <link rel="stylesheet" href="/assets/tailwind.css" data-turbo-track="reload">
     <%= javascript_importmap_tags %>
   </head>
   <body class="bg-slate-50 text-slate-900">
