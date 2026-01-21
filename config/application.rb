@@ -33,6 +33,8 @@ module SwingBridge
     config.autoload_paths << Rails.root.join("app/components")
     config.eager_load_paths << Rails.root.join("app/components")
     config.assets.paths << Rails.root.join("app/assets/builds")
+    config.assets.precompile += %w[tailwind.css]
+    config.assets.enabled = true
 
     # Configuration for the application, engines, and railties goes here.
     #

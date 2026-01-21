@@ -5,6 +5,14 @@ RSpec.describe "Admin IntakeAttempts", type: :request do
     ActionController::HttpAuthentication::Basic.encode_credentials("admin", "secret")
   end
 
+  around do |example|
+    original = ENV["ADMIN_AUTH_DISABLED"]
+    ENV["ADMIN_AUTH_DISABLED"] = nil
+    example.run
+  ensure
+    ENV["ADMIN_AUTH_DISABLED"] = original
+  end
+
   before do
     allow(Rails.application.credentials).to receive(:dig).with(:admin, :http_basic_auth_user).and_return("admin")
     allow(Rails.application.credentials).to receive(:dig).with(:admin, :http_basic_auth_password).and_return("secret")
