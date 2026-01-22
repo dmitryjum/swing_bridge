@@ -1,8 +1,16 @@
-#!/usr/bin/env ruby
-# Only apply Apple fork-safety bypass on macOS
-if RUBY_PLATFORM =~ /darwin/
-  ENV["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] ||= "YES"
-end
+#!/usr/bin/env sh
 
-# Local dev should always delegate to foreman (Procfile)
-exec "foreman", "start", *ARGV
+if ! gem list foreman -i --silent; then
+  echo "Installing foreman..."
+  gem install foreman
+fi
+
+# Default to port 3000 if not specified
+export PORT="${PORT:-3000}"
+
+# Let the debug gem allow remote connections,
+# but avoid loading until `debugger` is called
+export RUBY_DEBUG_OPEN="true"
+export RUBY_DEBUG_LAZY="true"
+
+exec foreman start -f Procfile.dev "$@"

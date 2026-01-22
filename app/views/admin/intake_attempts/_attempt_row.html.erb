@@ -1,0 +1,3 @@
+<%= link_to admin_intake_attempt_path(attempt, query_params), data: { turbo_frame: "attempt_detail" }, class: "block" do %>
+  <%= render Admin::AttemptRowComponent.new(attempt: attempt, selected: selected&.id == attempt.id) %>
+<% end %>

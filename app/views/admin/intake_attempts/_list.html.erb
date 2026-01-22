@@ -1,0 +1,15 @@
+<div class="rounded-2xl border border-slate-800 bg-slate-900/60 p-3 shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur">
+  <% query_params = request.query_parameters.except(:append) %>
+  <% page_number = params[:page].presence.to_i %>
+  <% page_number = 1 if page_number < 1 %>
+
+  <div id="attempts_list_header">
+    <%= render "list_header", total_count: total_count, page: page_number %>
+  </div>
+
+  <div id="attempts_list_items" class="space-y-2 max-h-[70vh] overflow-auto pr-1">
+    <%= render partial: "attempt_row", collection: attempts, as: :attempt, locals: { selected: selected, query_params: query_params } %>
+  </div>
+
+  <%= render "list_pagination", attempts: attempts, page: page_number, query_params: query_params %>
+</div>

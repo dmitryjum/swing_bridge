@@ -32,3 +32,9 @@
 # Ignore key files for decrypting credentials and more.
 /config/*.key
 .env
+.agent/
+.shared/
+
+
+/app/assets/builds/*
+!/app/assets/builds/.keep

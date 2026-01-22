@@ -11,4 +11,8 @@ Rails.application.routes.draw do
       resources :intakes, only: :create
     end
   end
+
+  namespace :admin do
+    resources :intake_attempts, only: %i[index show]
+  end
 end

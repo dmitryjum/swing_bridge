@@ -1,0 +1,29 @@
+<div class="px-6 py-6">
+  <div class="rounded-2xl bg-gradient-to-r from-teal-500/40 via-cyan-500/30 to-indigo-500/40 p-[1px] shadow-[0_10px_35px_rgba(0,0,0,0.35)]">
+    <div class="rounded-2xl bg-slate-950/90 text-white px-6 py-4 backdrop-blur">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-xs uppercase tracking-[0.2em] text-slate-400">Operations</div>
+          <h1 class="text-2xl font-semibold tracking-tight text-white">Intake Attempts</h1>
+        </div>
+        <div class="text-xs text-slate-400">Admin Panel</div>
+      </div>
+    </div>
+  </div>
+
+  <%= render "filters" %>
+
+  <div class="mt-4 grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6">
+    <turbo-frame id="attempts_list">
+      <%= render "list", attempts: @attempts, selected: @selected, total_count: @total_count %>
+    </turbo-frame>
+
+    <turbo-frame id="attempt_detail">
+      <% if @selected %>
+        <%= render "detail", attempt: @selected %>
+      <% else %>
+        <div class="rounded-xl border border-dashed border-slate-700 bg-slate-900/70 p-6 text-slate-400">No attempts found.</div>
+      <% end %>
+    </turbo-frame>
+  </div>
+</div>

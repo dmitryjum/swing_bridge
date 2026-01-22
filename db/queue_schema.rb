@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_11_13_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_01_21_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -24,6 +24,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_11_13_000000) do
     t.jsonb "response_payload", default: {}
     t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
+    t.index "to_tsvector('simple'::regconfig, (((((((((COALESCE(email, ''::character varying))::text || ' '::text) || (COALESCE(status, ''::character varying))::text) || ' '::text) || COALESCE(error_message, ''::text)) || ' '::text) || COALESCE((request_payload)::text, ''::text)) || ' '::text) || COALESCE((response_payload)::text, ''::text)))", name: "index_intake_attempts_on_search_vector", using: :gin
     t.index ["club", "email"], name: "index_intake_attempts_on_club_and_email", unique: true
     t.index ["email"], name: "index_intake_attempts_on_email"
     t.index ["status"], name: "index_intake_attempts_on_status"
