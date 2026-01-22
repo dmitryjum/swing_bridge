@@ -1,6 +1,6 @@
 <div class="px-6 py-6">
-  <div class="rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-900 p-[1px] shadow-sm">
-    <div class="rounded-2xl bg-slate-950/95 text-white px-6 py-4 backdrop-blur">
+  <div class="rounded-2xl bg-gradient-to-r from-teal-500/40 via-cyan-500/30 to-indigo-500/40 p-[1px] shadow-[0_10px_35px_rgba(0,0,0,0.35)]">
+    <div class="rounded-2xl bg-slate-950/90 text-white px-6 py-4 backdrop-blur">
       <div class="flex items-center justify-between">
         <div>
           <div class="text-xs uppercase tracking-[0.2em] text-slate-400">Operations</div>
@@ -22,7 +22,7 @@
       <% if @selected %>
         <%= render "detail", attempt: @selected %>
       <% else %>
-        <div class="rounded-xl border border-dashed border-slate-200 bg-white/70 p-6 text-slate-500">No attempts found.</div>
+        <div class="rounded-xl border border-dashed border-slate-700 bg-slate-900/70 p-6 text-slate-400">No attempts found.</div>
       <% end %>
     </turbo-frame>
   </div>

@@ -1,13 +1,13 @@
 <div class="space-y-4">
-  <div class="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm backdrop-blur">
+  <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-4 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur">
     <div class="flex items-center gap-2">
       <%= render Admin::StatusPillComponent.new(status: attempt.status) %>
       <span class="text-xs text-slate-500"><%= attempt.created_at.strftime("%Y-%m-%d %H:%M") %></span>
     </div>
-    <div class="mt-2 text-lg font-semibold text-slate-900"><%= attempt.email %></div>
-    <div class="mt-1 text-xs font-mono text-slate-600">club <%= attempt.club %> • id <%= attempt.id %> • attempts <%= attempt.attempts_count %></div>
+    <div class="mt-2 text-lg font-semibold text-slate-100"><%= attempt.email %></div>
+    <div class="mt-1 text-xs font-mono text-slate-400">club <%= attempt.club %> • id <%= attempt.id %> • attempts <%= attempt.attempts_count %></div>
     <% if attempt.error_message.present? %>
-      <div class="mt-2 text-xs text-rose-700"><%= attempt.error_message %></div>
+      <div class="mt-2 text-xs text-rose-300"><%= attempt.error_message %></div>
     <% end %>
   </div>
 
