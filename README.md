@@ -31,6 +31,7 @@ Rails API-only bridge that validates Gold's Gym members in ABC Financial and pro
 
 - UI at `/admin/intake_attempts` (two-pane list + detail).
 - Search includes `email`, `status`, `error_message`, `request_payload`, and `response_payload` via a GIN tsvector index.
+- Pagination uses a "Load more" button (20 attempts per batch) that appends results without reloading the page.
 - Basic Auth credentials live in `config/credentials.yml.enc`:
   ```yaml
   admin:
