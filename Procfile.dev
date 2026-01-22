@@ -1,6 +1,3 @@
 web: bin/rails server
 css: bin/rails tailwindcss:watch
-<<<<<<< HEAD
 worker: bundle exec rails solid_queue:start
-=======
->>>>>>> 80358b8 (chore: add hotwire, tailwind, and view component)
