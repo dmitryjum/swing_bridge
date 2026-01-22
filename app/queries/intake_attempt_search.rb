@@ -11,9 +11,14 @@ class IntakeAttemptSearch
     scope = scope.where(club: @params[:club]) if present?(:club)
 
     if present?(:q)
+      q = @params[:q].to_s.strip
       scope = scope.where(
-        "to_tsvector('simple', coalesce(email,'') || ' ' || coalesce(status,'') || ' ' || coalesce(error_message,'') || ' ' || coalesce(request_payload::text,'') || ' ' || coalesce(response_payload::text,'')) @@ plainto_tsquery('simple', ?)",
-        @params[:q]
+        "(to_tsvector('simple', coalesce(email,'') || ' ' || coalesce(status,'') || ' ' || coalesce(error_message,'') || ' ' || coalesce(request_payload::text,'') || ' ' || coalesce(response_payload::text,'')) @@ plainto_tsquery('simple', ?)
+         OR email ILIKE ? OR status ILIKE ? OR error_message ILIKE ?)",
+        q,
+        "%#{q}%",
+        "%#{q}%",
+        "%#{q}%"
       )
     end
 

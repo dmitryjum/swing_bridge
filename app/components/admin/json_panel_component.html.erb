@@ -3,5 +3,5 @@
     <h3 class="text-sm font-semibold text-slate-700"><%= @title %></h3>
     <button type="button" data-controller="clipboard" data-action="click->clipboard#copy" data-clipboard-text-value="<%= pretty_json %>" class="text-xs text-blue-600 hover:text-blue-800">Copy</button>
   </header>
-  <pre class="p-4 text-xs font-mono text-slate-800 overflow-auto"><%= pretty_json %></pre>
+  <pre class="p-4 text-xs font-mono text-slate-800 overflow-auto max-h-[360px]"><%= pretty_json %></pre>
 </section>
