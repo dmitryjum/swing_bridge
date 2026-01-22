@@ -1,5 +1,5 @@
 class IntakeAttemptSearch
-  DEFAULT_PER_PAGE = 50
+  DEFAULT_PER_PAGE = 20
 
   def initialize(params)
     @params = params

@@ -1,0 +1,5 @@
+<div class="mt-4 flex items-center justify-end" id="attempts_list_pagination">
+  <% if attempts.size == IntakeAttemptSearch::DEFAULT_PER_PAGE %>
+    <%= link_to "Load more", admin_intake_attempts_path(query_params.merge(page: page + 1, append: 1)), data: { turbo_stream: true }, class: "text-sm text-cyan-300 hover:text-cyan-200" %>
+  <% end %>
+</div>
