@@ -31,4 +31,30 @@ RSpec.describe "Admin IntakeAttempts", type: :request do
     expect(response).to have_http_status(:ok)
     expect(response.body).to include("Intake Attempts")
   end
+
+  it "shows cumulative rows when paging the list frame" do
+    25.times do |i|
+      IntakeAttempt.create!(
+        club: "1",
+        email: "attempt-#{i}@example.com",
+        status: "pending",
+        created_at: i.minutes.ago
+      )
+    end
+
+    headers = {
+      "HTTP_AUTHORIZATION" => auth,
+      "Turbo-Frame" => "attempts_list"
+    }
+
+    get "/admin/intake_attempts", params: { page: 1 }, headers: headers
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include("attempt-19@example.com")
+    expect(response.body).not_to include("attempt-20@example.com")
+
+    get "/admin/intake_attempts", params: { page: 2 }, headers: headers
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include("attempt-20@example.com")
+    expect(response.body).to include("attempt-24@example.com")
+  end
 end
