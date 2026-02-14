@@ -11,5 +11,5 @@
     <%= render partial: "attempt_row", collection: attempts, as: :attempt, locals: { selected: selected, query_params: query_params } %>
   </div>
 
-  <%= render "list_pagination", attempts: attempts, page: page_number, query_params: query_params %>
+  <%= render "list_pagination", attempts: attempts, page: page_number, query_params: query_params, total_count: total_count %>
 </div>

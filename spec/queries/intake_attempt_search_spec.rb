@@ -16,4 +16,22 @@ RSpec.describe IntakeAttemptSearch do
     expect(results).to include(hit)
     expect(results).not_to include(miss)
   end
+
+  it "returns cumulative results by page" do
+    25.times do |i|
+      IntakeAttempt.create!(
+        club: "1",
+        email: "attempt-#{i}@example.com",
+        status: "pending",
+        created_at: i.minutes.ago
+      )
+    end
+
+    page_1 = described_class.new(page: 1).cumulative_results
+    page_2 = described_class.new(page: 2).cumulative_results
+
+    expect(page_1.size).to eq(20)
+    expect(page_2.size).to eq(25)
+    expect(page_2.map(&:id)).to include(*page_1.map(&:id))
+  end
 end

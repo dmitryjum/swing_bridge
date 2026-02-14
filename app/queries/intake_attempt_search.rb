@@ -37,6 +37,10 @@ class IntakeAttemptSearch
     results.limit(per_page).offset((page - 1) * per_page)
   end
 
+  def cumulative_results
+    results.limit(page * per_page)
+  end
+
   private
 
   def present?(key)
