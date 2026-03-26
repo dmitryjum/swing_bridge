@@ -1,6 +1,6 @@
-# 🏋️‍♂️ Gold's Gym Membership Bridge (ABC -> MindBody)
+# 🏋️‍♂️ Gym Membership Bridge (ABC -> MindBody)
 
-Rails API-only bridge that validates Gold's Gym members in ABC Financial and provisions/updates matching MindBody clients through a Solid Queue job. Intake requests are persisted so retries, MindBody outcomes, and admin alerts can be audited.
+Rails API-only bridge that validates gym members in ABC Financial and provisions/updates matching MindBody clients through a Solid Queue job. Intake requests are persisted so retries, MindBody outcomes, and admin alerts can be audited.
 
 ---
 
